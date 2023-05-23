@@ -56,6 +56,10 @@ module.exports = (io) => {
             joinGame(socket, gameId);
         });
 
+        socket.on("betCheckFold", (data) => {
+            console.log(data);
+        });
+
         // socket.on("selectBox", ({ boxId, gameId }) => {
         //   let game = games[gameId];
         //   if (!game) {

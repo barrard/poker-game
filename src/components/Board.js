@@ -69,7 +69,7 @@ const positions = {
 
 export const Board = ({ game, user, mySocket, currentHand }) => {
     console.log({ game, user });
-    const YOU = game.players[user.id];
+    const YOU = game.players[user.id] || { position: 0 };
     const YOUR_POSITION = 3;
     const seatPositionMap = {
         [YOU.position]: YOUR_POSITION,
@@ -101,34 +101,38 @@ export const Board = ({ game, user, mySocket, currentHand }) => {
         };
     });
 
-    console.log({ width, height });
+    // console.log({ width, height });
 
-    const Player = (props) => {
-        const { player } = props;
-        let pos = seatPositionMap[player.position]; //+ YOU.position;
-        // if (pos > 6) pos = pos - 6;
-        let _pos = positions[pos];
-        const playerSelect = useCallback((g) => {
-            g.clear();
-
-            g.lineStyle(2, 0xffffff, 0.5);
-            g.arc(0, 0, 60, 0, Math.PI * 2, false);
-
-            g.endFill();
-        }, []);
-        return (
-            <Container anchor={0.5} x={_pos.x} y={_pos.y}>
-                <Graphics anchor={0.5} draw={playerSelect} />
-                <Sprite
-                    image={`/img/players/${player.position}.png`}
-                    angle={_pos.rotation}
-                    anchor={0.5}
-                />
-            </Container>
-        );
-    };
     let gamePositions = Object.keys(game.positions);
     const dealDuration = gamePositions.length * 0.1;
+
+    const DealHands = useMemo(() => {
+        return (
+            <>
+                {game.cardsDealt && (
+                    <DealCards
+                        seatPositionMap={seatPositionMap}
+                        gamePositions={gamePositions}
+                        game={game}
+                        isCard1={true}
+                        YOUR_POSITION={YOU.position}
+                        currentHand={currentHand}
+                    />
+                )}
+                {game.cardsDealt && (
+                    <DealCards
+                        seatPositionMap={seatPositionMap}
+                        gamePositions={gamePositions}
+                        game={game}
+                        dealDuration={dealDuration}
+                        isCard2={true}
+                        YOUR_POSITION={YOU.position}
+                        currentHand={currentHand}
+                    />
+                )}
+            </>
+        );
+    }, [game.cardsDealt, seatPositionMap, currentHand, gamePositions]);
     return (
         <BoardContainer>
             <Stage
@@ -154,11 +158,16 @@ export const Board = ({ game, user, mySocket, currentHand }) => {
                         <Player
                             key={socketId}
                             player={game.players[socketId]}
+                            seatPositionMap={seatPositionMap}
+                            game={game}
+                            mySocket={mySocket}
+                            YOU={YOU}
                         />
                     );
                 })}
 
-                {game.cardsDealt && (
+                {DealHands}
+                {/* {game.cardsDealt && (
                     <DealCards
                         seatPositionMap={seatPositionMap}
                         gamePositions={gamePositions}
@@ -178,7 +187,7 @@ export const Board = ({ game, user, mySocket, currentHand }) => {
                         YOUR_POSITION={YOU.position}
                         currentHand={currentHand}
                     />
-                )}
+                )} */}
 
                 {/* <Card isDealt={true} toPosition={0} /> */}
                 {/* <Card isDealt={true} toPosition={1} />
@@ -205,9 +214,84 @@ export const Board = ({ game, user, mySocket, currentHand }) => {
     );
 };
 
+function PlayerTimer() {
+    const [arcEndAngle, setArcEndAngle] = useState(Math.PI * 2); // Initial end angle
+
+    useEffect(() => {
+        const interval = setInterval(() => {
+            setArcEndAngle((prevAngle) => {
+                if (prevAngle <= 0) clearInterval(interval);
+                return prevAngle - 0.41;
+            }); // Update the end angle every interval
+        }, 1000); // Interval duration in milliseconds
+
+        return () => {
+            clearInterval(interval); // Clear the interval on component unmount
+        };
+    }, []);
+
+    const playerTimer = (g) => {
+        g.clear();
+
+        g.lineStyle(8, 0x33f0ff, 0.2);
+        g.arc(0, 0, 60, 0, arcEndAngle, false);
+
+        g.endFill();
+    };
+
+    return <Graphics anchor={0.5} draw={playerTimer} />;
+}
+
+function PlayerError() {
+    const playerError = useCallback((g) => {
+        g.clear();
+
+        g.lineStyle(8, 0xdd1111, 0.9);
+        g.arc(0, 0, 60, 0, Math.PI * 2, false);
+
+        g.endFill();
+    }, []);
+
+    return <Graphics anchor={0.5} draw={playerError} />;
+}
+function Player(props) {
+    const { player, seatPositionMap, game, mySocket, YOU } = props;
+    const isYOU = player.position === YOU.position;
+    let pos = seatPositionMap[player.position]; //+ YOU.position;
+
+    const graphicsRef = useRef();
+    let _pos = positions[pos];
+    const playerSelect = useCallback((g) => {
+        g.clear();
+
+        g.lineStyle(8, 0x333333, 0.5);
+        g.arc(0, 0, 60, 0, Math.PI * 2, false);
+
+        g.endFill();
+    }, []);
+
+    return (
+        <Container anchor={0.5} x={_pos.x} y={_pos.y}>
+            <BetButton socket={mySocket} />
+
+            {isYOU && <Graphics anchor={0.5} draw={playerSelect} />}
+            {player.position === game.bettersTurn && (
+                <>
+                    <Button />
+                    <PlayerTimer />
+                </>
+            )}
+            {player.position === game.bettersTurnOutOfTime && <PlayerError />}
+            <Sprite
+                image={`/img/players/${player.position}.png`}
+                angle={_pos.rotation}
+                anchor={0.5}
+            />
+        </Container>
+    );
+}
+
 function DealCards(props = {}) {
-    const [card1File, setCard1File] = useState("back");
-    const [card2File, setCard2File] = useState("back");
     const {
         gamePositions,
         dealDuration = 0,
@@ -219,43 +303,46 @@ function DealCards(props = {}) {
         currentHand,
     } = props;
 
-    let card1Value = currentHand[0];
-    let card2Value = currentHand[1];
     return gamePositions.map((position, i) => {
         let onComplete = () => {};
-        console.log(currentHand);
+
         if (position == YOUR_POSITION) {
-            debugger;
-            onComplete = (pixiObject) => {
-                const timeline = gsap.timeline({
-                    onUpdate: () => {
-                        // Calculate the progress of the timeline
-                        const progress = timeline.progress();
-
-                        // Check if the timeline has reached 50% completion
-                        if (progress >= 0.5) {
-                            console.log("Timeline is 50% complete!");
-                            if (isCard1) {
-                                setCard1File(convertCardToFile(card1Value));
-                            } else if (isCard2) {
-                                setCard2File(convertCardToFile(card2Value));
-                            }
-                        }
-                    },
-                });
-
-                timeline.to(pixiObject, {
+            onComplete = ({ pixiObject, setCardFile, faceValue }) => {
+                // console.log({ isCard1, isCard2 });
+                gsap.to(pixiObject, {
                     pixi: {
-                        skewY: isCard1 ? 180 : 180,
+                        skewY: isCard1 ? -90 : 90,
                     },
-                    duration: 1,
+                    duration: 0.5,
+                    onComplete: () => {
+                        // debugger;
+                        // console.log(
+                        //     `${
+                        //         isCard1 ? "Card1 " : "card 2 "
+                        //     } first turn and set animation done`
+                        // );
+
+                        setCardFile(faceValue);
+                        gsap.to(pixiObject, {
+                            pixi: {
+                                skewY: isCard1 ? 0 : 0,
+                            },
+                            duration: 1,
+                            onComplete: () => {
+                                // console.log(
+                                //     `${
+                                //         isCard1 ? "Card1 " : "card 2 "
+                                //     } FINAL turn animation done`
+                                // );
+                            },
+                        });
+                    },
                 });
             };
         }
         if (!game.positions[position]) {
             return <React.Fragment key={position}></React.Fragment>;
         } else {
-            console.log({ card1File, card2File });
             return (
                 <Card
                     key={position}
@@ -266,11 +353,73 @@ function DealCards(props = {}) {
                     isCard2={isCard2}
                     faceValue={"ok?"}
                     onComplete={onComplete}
-                    file={isCard1 ? card1File : card2File}
+                    file={"back"}
+                    currentHand={currentHand}
                 />
             );
         }
     });
+}
+
+function BetButton(props) {
+    return <Button x={200} y={30} text="BET" textColor="white" />;
+}
+function Button(props = {}) {
+    const {
+        buttonColor = 0xff0000,
+        handleClick = () => {},
+        x = 0,
+        y = 0,
+        text = "HELLO WORLD",
+        textColor = "red",
+        fontSize = 15,
+    } = props;
+
+    const textStyle = new PIXI.TextStyle({
+        fontFamily: "Arial",
+        fill: textColor,
+        fontSize: fontSize,
+        fontWeight: "bold",
+        align: "center",
+    });
+    let { width: txtWidth, height: txtHeight } = PIXI.TextMetrics.measureText(
+        text,
+        textStyle
+    );
+    const btnXPadding = 8;
+    const btnYPadding = 4;
+    const button = useCallback((g) => {
+        g.clear();
+
+        g.beginFill(buttonColor, 0.5);
+        g.drawRoundedRect(
+            0,
+            0,
+            txtWidth + btnXPadding,
+            txtHeight + btnYPadding,
+            3
+        );
+
+        g.endFill();
+        // Enable button interactivity
+        g.interactive = true;
+        g.buttonMode = true;
+        g.on("click", handleClick);
+    }, []);
+
+    return (
+        <Container>
+            <Graphics x={x} y={y} draw={button}>
+                <Text
+                    text={text}
+                    anchor={{ x: 0.5, y: 0.5 }}
+                    style={textStyle}
+                    x={txtWidth / 2 + btnXPadding / 2}
+                    y={txtHeight / 2 + btnYPadding / 2}
+                />
+            </Graphics>
+        </Container>
+    );
 }
 
 function Card(props = {}) {
@@ -284,10 +433,19 @@ function Card(props = {}) {
         isCard1 = false,
         isCard2 = false,
         onComplete = () => {},
+        currentHand = false,
     } = props;
+
     const pixiObject = useRef();
     const width = 222;
     const height = 323;
+
+    const [cardFile, setCardFile] = useState(file);
+    const faceValue = !currentHand
+        ? "back"
+        : isCard1
+        ? convertCardToFile(currentHand[0])
+        : convertCardToFile(currentHand[1]);
 
     if (isDealt) {
         x = positions.dealer.x;
@@ -298,18 +456,28 @@ function Card(props = {}) {
         if (pixiObject.current) {
             if (isDealt) {
                 gsap.to(pixiObject.current, {
-                    // pixi: { scaleX: 2, scaleY: 1.5, skewX: 30, rotation: 60 },
                     pixi: {
                         positionX: isCard1
-                            ? positions[toPosition].x - 10
-                            : positions[toPosition].x + 10,
+                            ? positions[toPosition].x - 20
+                            : positions[toPosition].x + 20,
                         positionY: positions[toPosition].y,
-                        rotation: isCard1 ? 360 - 15 : 360 + 15,
+                        rotation: isCard1 ? 360 - 10 : 360 + 10,
                         scale: 0.25,
                     },
                     delay,
                     duration: 1,
-                    onComplete: () => onComplete(pixiObject.current),
+                    onComplete: () => {
+                        // console.log(
+                        //     `${
+                        //         isCard1 ? "Card 1 " : "card 2 "
+                        //     } initial animation done`
+                        // );
+                        onComplete({
+                            pixiObject: pixiObject.current,
+                            setCardFile,
+                            faceValue,
+                        });
+                    },
                 });
             }
         }
@@ -333,17 +501,19 @@ function Card(props = {}) {
             // width={width}
             // height={height}
             scale={0}
+            skew={{ x: 0, y: 0 }}
         >
             <Graphics draw={draw} />
             <Sprite
                 // filters={[new PIXI.filters.FXAAFilter()]}
-                image={`/img/cards/${file}.png`}
+                image={`/img/cards/${cardFile}.png`}
                 anchor={0}
                 x={5}
                 y={5}
                 width={width - 10}
                 height={height - 10}
                 // scale={1}
+                // skew={0}
             />
         </Container>
     );
@@ -424,6 +594,6 @@ function convertCardToFile(card) {
         default:
             break;
     }
-    debugger;
+
     return `${rank}_of_${suit}`;
 }

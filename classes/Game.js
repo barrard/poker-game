@@ -27,6 +27,8 @@ module.exports = class Game {
         this.socketIo.to(this.waitingRoom).emit("new game", this.getState());
         this.timeToDeal = 2000;
         this.cardsDealt = false;
+        this.bettersTurn = undefined;
+        this.bettersTurnOutOfTime = undefined;
     }
 
     getState() {
@@ -40,6 +42,8 @@ module.exports = class Game {
             bigBlind: this.bigBlind,
             state: this.state,
             cardsDealt: this.cardsDealt,
+            bettersTurn: this.bettersTurn,
+            bettersTurnOutOfTime: this.bettersTurnOutOfTime,
         };
     }
 
@@ -119,6 +123,18 @@ module.exports = class Game {
             const socket = this.sockets[player.position];
             socket.emit("yourHand", player.hand);
         });
+        this.positionsToBet = this.findFirstAvailablePosition({
+            startingPos: dealer + 1,
+            collect: true,
+            isEmpty: false,
+        });
+        this.bettersTurn = this.positionsToBet.shift();
+        this.emitGameStateUpdate();
+        this.betTime = setTimeout(() => {
+            this.bettersTurnOutOfTime = this.bettersTurn;
+            this.bettersTurn = null;
+            this.emitGameStateUpdate();
+        }, 1000 * 15);
     }
 
     dealCardsToPlayers(positionsToDeal) {
@@ -176,7 +192,12 @@ module.exports = class Game {
     }
 
     findFirstAvailablePosition(opts = {}) {
-        const { startingPos = 0, isEmpty = true, collect = false } = opts;
+        const {
+            startingPos = 0,
+            isEmpty = true,
+            collect = false,
+            ignorePositions = [],
+        } = opts;
         let position = startingPos;
         const playersOrder = [];
         if (position == undefined) {
