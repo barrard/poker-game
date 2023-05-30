@@ -1,4 +1,11 @@
-import React, { useState, useEffect, useRef, useCallback } from "react";
+import React, {
+    useState,
+    useEffect,
+    useRef,
+    useCallback,
+    useMemo,
+    useContext,
+} from "react";
 import styled, { keyframes } from "styled-components";
 import Reward from "react-rewards";
 import { gsap } from "gsap";
@@ -6,213 +13,139 @@ import { PixiPlugin } from "gsap/PixiPlugin";
 // import { Application, Assets, Sprite, Container } from "pixi.js";
 import * as PIXI from "pixi.js";
 import { Stage, Container, Sprite, Text, Graphics } from "@pixi/react";
-import { useMemo } from "react";
-// register the plugin
+import MainContext from "../Contexts/MainContext";
+import PixiGame from "./PixiGame";
 gsap.registerPlugin(PixiPlugin);
 
-// give the plugin a reference to the PIXI object
 PixiPlugin.registerPIXI(PIXI);
-// PIXI.settings.SCALE_MODE = PIXI.SCALE_MODES.NEAREST;
 
 const width = window.innerWidth;
 const height = (width / 1920) * 1080;
-const maxTableWidth = 1200;
+const maxTableWidth = 12000;
 const tableWidth =
     window.innerWidth > maxTableWidth ? maxTableWidth : window.innerWidth;
 const tableHeight = (tableWidth / 1920) * 1080;
+const globalScale = tableWidth / 1920;
 
-const positions = {
-    0: {
-        x: width * 0.67,
-        y: height * 0.29,
-        rotation: 0,
-    },
-    1: {
-        x: width * 0.73,
-        y: height * 0.49,
-        rotation: 0,
-    },
+export function Board() {
+    const { user, mySocket, currentHand, gameState } = useContext(MainContext);
 
-    2: {
-        x: width * 0.67,
-        y: height * 0.65,
-        rotation: 0,
-    },
+    // console.log({ gameState, user, tableHeight, tableWidth });
 
-    3: {
-        x: width * 0.45,
-        y: height * 0.7,
-        rotation: 0,
-    },
-    4: {
-        x: width * 0.32,
-        y: height * 0.65,
-        rotation: 0,
-    },
-    5: {
-        x: width * 0.27,
-        y: height * 0.49,
-        rotation: 0,
-    },
-    6: {
-        x: width * 0.32,
-        y: height * 0.29,
-        rotation: 0,
-    },
-
-    dealer: {
-        x: width / 2,
-        y: height * 0.25,
-        rotation: 0,
-    },
-};
-
-export const Board = ({ game, user, mySocket, currentHand }) => {
-    console.log({ game, user });
-    const YOU = game.players[user.id] || { position: 0 };
-    const YOUR_POSITION = 3;
-    const seatPositionMap = {
-        [YOU.position]: YOUR_POSITION,
-    };
-
-    while (Object.keys(seatPositionMap).length < 7) {
-        let newPos = YOU.position + Object.keys(seatPositionMap).length;
-        let newRelativePosition =
-            YOUR_POSITION + Object.keys(seatPositionMap).length;
-        if (newPos > 6) newPos -= 7;
-        if (newRelativePosition > 6) newRelativePosition -= 7;
-
-        seatPositionMap[newPos] = newRelativePosition;
-    }
-
-    const getRelativeSeatPosition = (player) => {};
     const appRef = useRef(null);
-    const pixieRef = useRef(null);
+    const pixieAppRef = useRef(null);
+    const pixiCanvasRef = useRef(null);
+    const [pixiGame, setPixiGame] = useState(null);
 
     useEffect(() => {
-        mySocket.on("cardDealt", (playerPosition) => {
-            console.log({ playerPosition });
-            const seenPlayer = seatPositionMap[playerPosition];
-            console.log({ seenPlayer });
-            //show card go from therer to here
+        // if (!pixiCanvasRef.current) return;
+        console.log("--- mont the board?");
+
+        pixieAppRef.current = new PIXI.Application({
+            // height: tableHeight,
+            // width: tableWidth,
+            width: window.innerWidth,
+            height: window.innerHeight,
+            backgroundColor: 0x000,
+            antialias: true,
+            resolution: 4,
+            autoDensity: true, // !!!
         });
+        pixieAppRef.current.view.style["image-rendering"] = "pixelated";
+
+        pixieAppRef.current.stage.interactive = true;
+
+        pixiCanvasRef.current.appendChild(pixieAppRef.current.view);
+
+        const pixiGame = new PixiGame({
+            pixiApp: pixieAppRef.current,
+            height: tableHeight,
+            width: tableWidth,
+            gameState,
+            user,
+            gsap,
+            globalScale,
+
+            margin: {
+                top: 50,
+                right: 100,
+                left: 0,
+                bottom: 40,
+            },
+        });
+
+        setPixiGame(pixiGame);
+
+        mySocket.on("cardsDealt", (playerPositions) => {
+            console.log("cardsDealt");
+            pixiGame.dealCards(playerPositions);
+        });
+        mySocket.on("addPlayer", (player) => {
+            console.log("addPlayer");
+            pixiGame.addPlayer(player);
+        });
+
+        mySocket.on("removePlayer", (player) => {
+            console.log("removePlayer");
+            pixiGame.removePlayer(player);
+        });
+
+        mySocket.on("yourHand", (hand) => {
+            console.log("yourHand");
+            console.log(hand);
+            const [card1, card2] = [
+                convertCardToFile(hand[0]),
+                convertCardToFile(hand[1]),
+            ];
+            debugger;
+            pixiGame.yourHand([card1, card2]);
+        });
+
+        mySocket.on("playersBettingTurn", (playerPosition) => {
+            console.log(playerPosition);
+            pixiGame.playersBettingTurn(playerPosition);
+        });
+
         return () => {
-            mySocket.off("cardDealt");
+            console.log("un mont the board?");
+            mySocket.off("cardsDealt");
+            mySocket.off("addPlayer");
+            mySocket.off("removePlayer");
+            mySocket.off("yourHand");
+            mySocket.off("playersBettingTurn");
+            pixieAppRef.current.destroy(true, true);
+            pixieAppRef.current = null;
+            pixiGame.destroy();
+            setPixiGame(false);
         };
-    });
+    }, []);
 
-    // console.log({ width, height });
+    useEffect(() => {
+        console.log(gameState);
+    }, [gameState]);
 
-    let gamePositions = Object.keys(game.positions);
-    const dealDuration = gamePositions.length * 0.1;
+    function runTest() {
+        // alert("works");
+        pixiGame.playersBettingTurn(0);
+    }
 
-    const DealHands = useMemo(() => {
-        return (
-            <>
-                {game.cardsDealt && (
-                    <DealCards
-                        seatPositionMap={seatPositionMap}
-                        gamePositions={gamePositions}
-                        game={game}
-                        isCard1={true}
-                        YOUR_POSITION={YOU.position}
-                        currentHand={currentHand}
-                    />
-                )}
-                {game.cardsDealt && (
-                    <DealCards
-                        seatPositionMap={seatPositionMap}
-                        gamePositions={gamePositions}
-                        game={game}
-                        dealDuration={dealDuration}
-                        isCard2={true}
-                        YOUR_POSITION={YOU.position}
-                        currentHand={currentHand}
-                    />
-                )}
-            </>
-        );
-    }, [game.cardsDealt, seatPositionMap, currentHand, gamePositions]);
+    if (!gameState.players || !Object.keys(gameState.players)?.length)
+        return <>Waiting for players</>;
+
     return (
         <BoardContainer>
-            <Stage
-                width={width}
-                height={height}
-                options={{
-                    antialias: true,
-                    resolution: window.devicePixelRatio,
-                    autoDensity: true,
-                    scaleMode: PIXI.SCALE_MODES.NEAREST,
+            <button
+                onClick={() => {
+                    runTest();
                 }}
             >
-                <Sprite
-                    image="/img/poker-table.jpg"
-                    width={tableWidth}
-                    height={tableHeight}
-                    x={width / 2}
-                    y={height / 2}
-                    anchor={{ x: 0.5, y: 0.5 }}
-                />
-                {Object.keys(game.players).map((socketId) => {
-                    return (
-                        <Player
-                            key={socketId}
-                            player={game.players[socketId]}
-                            seatPositionMap={seatPositionMap}
-                            game={game}
-                            mySocket={mySocket}
-                            YOU={YOU}
-                        />
-                    );
-                })}
-
-                {DealHands}
-                {/* {game.cardsDealt && (
-                    <DealCards
-                        seatPositionMap={seatPositionMap}
-                        gamePositions={gamePositions}
-                        game={game}
-                        isCard1={true}
-                        YOUR_POSITION={YOU.position}
-                        currentHand={currentHand}
-                    />
-                )}
-                {game.cardsDealt && (
-                    <DealCards
-                        seatPositionMap={seatPositionMap}
-                        gamePositions={gamePositions}
-                        game={game}
-                        dealDuration={dealDuration}
-                        isCard2={true}
-                        YOUR_POSITION={YOU.position}
-                        currentHand={currentHand}
-                    />
-                )} */}
-
-                {/* <Card isDealt={true} toPosition={0} /> */}
-                {/* <Card isDealt={true} toPosition={1} />
-                <Card isDealt={true} toPosition={2} />
-                <Card isDealt={true} toPosition={3} />
-                <Card isDealt={true} toPosition={4} />
-                <Card isDealt={true} toPosition={5} />
-                <Card isDealt={true} toPosition={6} /> */}
-
-                <Sprite
-                    image="/img/players/dealer.png"
-                    angle={positions.dealer.rotation}
-                    anchor={0.5}
-                    x={positions.dealer.x}
-                    y={positions.dealer.y}
-                />
-                {/* //CARDS */}
-                <Card file="2_of_clubs" />
-                <Container>
-                    {/* <Text text="Hello World" anchor={{ x: 0.5, y: 0.5 }} filters={[blurFilter]} /> */}
-                </Container>
-            </Stage>
+                TEST
+            </button>
+            gogo?
+            <div ref={pixiCanvasRef}></div>
         </BoardContainer>
     );
-};
+}
 
 function PlayerTimer() {
     const [arcEndAngle, setArcEndAngle] = useState(Math.PI * 2); // Initial end angle
@@ -240,125 +173,6 @@ function PlayerTimer() {
     };
 
     return <Graphics anchor={0.5} draw={playerTimer} />;
-}
-
-function PlayerError() {
-    const playerError = useCallback((g) => {
-        g.clear();
-
-        g.lineStyle(8, 0xdd1111, 0.9);
-        g.arc(0, 0, 60, 0, Math.PI * 2, false);
-
-        g.endFill();
-    }, []);
-
-    return <Graphics anchor={0.5} draw={playerError} />;
-}
-function Player(props) {
-    const { player, seatPositionMap, game, mySocket, YOU } = props;
-    const isYOU = player.position === YOU.position;
-    let pos = seatPositionMap[player.position]; //+ YOU.position;
-
-    const graphicsRef = useRef();
-    let _pos = positions[pos];
-    const playerSelect = useCallback((g) => {
-        g.clear();
-
-        g.lineStyle(8, 0x333333, 0.5);
-        g.arc(0, 0, 60, 0, Math.PI * 2, false);
-
-        g.endFill();
-    }, []);
-
-    return (
-        <Container anchor={0.5} x={_pos.x} y={_pos.y}>
-            <BetButton socket={mySocket} />
-
-            {isYOU && <Graphics anchor={0.5} draw={playerSelect} />}
-            {player.position === game.bettersTurn && (
-                <>
-                    <Button />
-                    <PlayerTimer />
-                </>
-            )}
-            {player.position === game.bettersTurnOutOfTime && <PlayerError />}
-            <Sprite
-                image={`/img/players/${player.position}.png`}
-                angle={_pos.rotation}
-                anchor={0.5}
-            />
-        </Container>
-    );
-}
-
-function DealCards(props = {}) {
-    const {
-        gamePositions,
-        dealDuration = 0,
-        game,
-        isCard1 = false,
-        isCard2 = false,
-        seatPositionMap,
-        YOUR_POSITION,
-        currentHand,
-    } = props;
-
-    return gamePositions.map((position, i) => {
-        let onComplete = () => {};
-
-        if (position == YOUR_POSITION) {
-            onComplete = ({ pixiObject, setCardFile, faceValue }) => {
-                // console.log({ isCard1, isCard2 });
-                gsap.to(pixiObject, {
-                    pixi: {
-                        skewY: isCard1 ? -90 : 90,
-                    },
-                    duration: 0.5,
-                    onComplete: () => {
-                        // debugger;
-                        // console.log(
-                        //     `${
-                        //         isCard1 ? "Card1 " : "card 2 "
-                        //     } first turn and set animation done`
-                        // );
-
-                        setCardFile(faceValue);
-                        gsap.to(pixiObject, {
-                            pixi: {
-                                skewY: isCard1 ? 0 : 0,
-                            },
-                            duration: 1,
-                            onComplete: () => {
-                                // console.log(
-                                //     `${
-                                //         isCard1 ? "Card1 " : "card 2 "
-                                //     } FINAL turn animation done`
-                                // );
-                            },
-                        });
-                    },
-                });
-            };
-        }
-        if (!game.positions[position]) {
-            return <React.Fragment key={position}></React.Fragment>;
-        } else {
-            return (
-                <Card
-                    key={position}
-                    delay={i * 0.1 + dealDuration}
-                    isDealt={true}
-                    toPosition={seatPositionMap[position]}
-                    isCard1={isCard1}
-                    isCard2={isCard2}
-                    faceValue={"ok?"}
-                    onComplete={onComplete}
-                    file={"back"}
-                    currentHand={currentHand}
-                />
-            );
-        }
-    });
 }
 
 function BetButton(props) {
@@ -422,106 +236,10 @@ function Button(props = {}) {
     );
 }
 
-function Card(props = {}) {
-    let {
-        x = 200,
-        y = 200,
-        file = "back",
-        isDealt = false,
-        toPosition = undefined,
-        delay = 10,
-        isCard1 = false,
-        isCard2 = false,
-        onComplete = () => {},
-        currentHand = false,
-    } = props;
-
-    const pixiObject = useRef();
-    const width = 222;
-    const height = 323;
-
-    const [cardFile, setCardFile] = useState(file);
-    const faceValue = !currentHand
-        ? "back"
-        : isCard1
-        ? convertCardToFile(currentHand[0])
-        : convertCardToFile(currentHand[1]);
-
-    if (isDealt) {
-        x = positions.dealer.x;
-        y = positions.dealer.y;
-    }
-
-    useEffect(() => {
-        if (pixiObject.current) {
-            if (isDealt) {
-                gsap.to(pixiObject.current, {
-                    pixi: {
-                        positionX: isCard1
-                            ? positions[toPosition].x - 20
-                            : positions[toPosition].x + 20,
-                        positionY: positions[toPosition].y,
-                        rotation: isCard1 ? 360 - 10 : 360 + 10,
-                        scale: 0.25,
-                    },
-                    delay,
-                    duration: 1,
-                    onComplete: () => {
-                        // console.log(
-                        //     `${
-                        //         isCard1 ? "Card 1 " : "card 2 "
-                        //     } initial animation done`
-                        // );
-                        onComplete({
-                            pixiObject: pixiObject.current,
-                            setCardFile,
-                            faceValue,
-                        });
-                    },
-                });
-            }
-        }
-    }, [pixiObject.current]);
-    const draw = useCallback((g) => {
-        g.clear();
-
-        g.beginFill(0xffffff, 1);
-        g.drawRoundedRect(0, 0, 222, 323, 5);
-
-        g.endFill();
-    }, []);
-
-    return (
-        //222x323
-        <Container
-            ref={pixiObject}
-            x={x}
-            y={y}
-            pivot={new PIXI.Point(width / 2, height / 2)}
-            // width={width}
-            // height={height}
-            scale={0}
-            skew={{ x: 0, y: 0 }}
-        >
-            <Graphics draw={draw} />
-            <Sprite
-                // filters={[new PIXI.filters.FXAAFilter()]}
-                image={`/img/cards/${cardFile}.png`}
-                anchor={0}
-                x={5}
-                y={5}
-                width={width - 10}
-                height={height - 10}
-                // scale={1}
-                // skew={0}
-            />
-        </Container>
-    );
-}
-
 const BoardContainer = styled.div`
     width: 100%;
     margin-bottom: 15em;
+    border: solid 2px white;
 `;
 
 /*

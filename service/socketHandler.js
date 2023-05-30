@@ -1,9 +1,9 @@
 const { v4: uuidv4 } = require("uuid");
 const rp = require("request-promise");
 const Game = require("../classes/Game");
-const GamesManage = require("../classes/GamesManager");
+const GamesManager = require("../classes/GamesManager");
 
-const games = new GamesManage();
+const games = new GamesManager();
 const userGames = {};
 let socketIo;
 const sockets = {};
@@ -13,6 +13,12 @@ const waitingRoom = "waiting room";
 const playerLimit = 7;
 module.exports = (io) => {
     socketIo = io;
+    io.on("disconnection", (socket) => {
+        console.log(`Disconn`);
+    });
+    io.on("disconnect", (socket) => {
+        console.log(`Disconnedd`);
+    });
     io.on("connection", async (socket) => {
         console.log("CONNECTED");
         socket.join(waitingRoom);
@@ -32,28 +38,29 @@ module.exports = (io) => {
             let user = socketIds[socket.id];
             if (!user) return console.log("No user found");
             //make sure they havent already started a game
-            if (userGames[user.id]) {
-                //already have a game started
-                socket.emit("error", {
-                    msg: `You already have a game at ${userGames[user.id]}`,
-                });
-            } else {
-                //create game id
-                // let game = createNewGame(user);
-                let game = new Game({ socketIo, waitingRoom });
-                game.addPlayer(user, socket);
-                // let position = game.players[user.id].position;
-                games.addGame(game);
-                // console.log({ game, position });
-                // socket.leave(waitingRoom);
-                // socket.join(game.id);
-                // socket.emit("joiningGame", { game });
-            }
+            // if (userGames[user.id]) {
+            //     //already have a game started
+            //     socket.emit("error", {
+            //         msg: `You already have a game at ${userGames[user.id]}`,
+            //     });
+            // } else {
+            //create game id
+            // let game = createNewGame(user);
+            let game = new Game({ socketIo, waitingRoom });
+            game.addPlayer(user, socket);
+            // let position = game.players[user.id].position;
+            games.addGame(game);
+            io.to(waitingRoom).emit("gameList", games.getGamesState());
         });
 
         socket.on("joinGame", (gameId) => {
             //user wants to join this game
             joinGame(socket, gameId);
+        });
+
+        socket.on("leaveGame", (gameId) => {
+            //user wants to join this game
+            leaveGame(socket, gameId);
         });
 
         socket.on("betCheckFold", (data) => {
@@ -117,7 +124,8 @@ async function getUser() {
         let pic = results.picture.medium;
         let id = results.login.uuid;
         let hand = [];
-        return { name, pic, id, hand };
+        let chips = 10000;
+        return { name, pic, id, hand, chips };
     } catch (err) {
         console.log(err);
         return false;
@@ -130,12 +138,28 @@ function createNewGame(socketIo) {
     return game;
 }
 
+function leaveGame(socket, gameId) {
+    let user = socketIds[socket.id];
+    //make sure player limit is not reached
+    let game = games.getGame(gameId);
+    if (!game) {
+        socket.emit("error", { msg: "Game does not exist" });
+        socket.emit("gameList", games.getGamesState());
+
+        return;
+    }
+    game.removePlayer(user, socket, game);
+}
+
 function joinGame(socket, gameId) {
     let user = socketIds[socket.id];
     //make sure player limit is not reached
     let game = games.getGame(gameId);
     if (!game) {
         socket.emit("error", { msg: "Game does not exist" });
+        socket.emit("gameList", games.getGamesState());
+
+        return;
     }
     game.addPlayer(user, socket);
     // let playerCount = Object.keys(game.players).length;

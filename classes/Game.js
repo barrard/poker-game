@@ -24,11 +24,20 @@ module.exports = class Game {
         this.bigBlind; //= 2; //position
         this.state = 0; //means needs more people
         this.playerLimit = 7;
-        this.socketIo.to(this.waitingRoom).emit("new game", this.getState());
+        this.socketIo
+            .to(this.waitingRoom)
+            .emit("gameRoomCreated", this.getState());
         this.timeToDeal = 2000;
         this.cardsDealt = false;
         this.bettersTurn = undefined;
         this.bettersTurnOutOfTime = undefined;
+    }
+    async waitFor(time) {
+        await new Promise((resolve, reject) => {
+            setTimeout(() => {
+                return resolve();
+            }, time);
+        });
     }
 
     getState() {
@@ -47,7 +56,24 @@ module.exports = class Game {
         };
     }
 
-    addPlayer(user, socket) {
+    removePlayer(user, socket, game) {
+        console.log(`Removing player ${user.id}`);
+        let player = this.players[user.id];
+        socket.join(this.waitingRoom);
+        delete this.players[user.id];
+        socket.leave(game.id);
+        if (player) {
+            delete this.positions[player.position];
+            delete this.sockets[player.position];
+        } else {
+            console.log("whooo?");
+            return;
+        }
+        this.emitGameStateUpdate();
+        this.emitToRoom("removePlayer", player.position);
+    }
+
+    async addPlayer(user, socket) {
         //check game player limit
         let playerCount = Object.keys(this.players).length;
         if (playerCount >= this.playerLimit) {
@@ -63,17 +89,19 @@ module.exports = class Game {
             this.sockets[openSeatPosition] = socket;
             this.positions[openSeatPosition] = user;
             const game = this.getState();
-            socket.emit("joiningGame", { game });
+            socket.emit("joiningGame", game);
             socket.leave(this.waitingRoom);
             socket.join(game.id);
 
             this.emitGameStateUpdate();
+            this.emitToRoom("addPlayer", this.players[user.id]);
 
             let playerCount = Object.keys(this.players).length;
 
             if (playerCount == 2) {
                 //this is the second person to join and the game can now start.
                 //this person will be small blind
+                await this.waitFor(1000);
 
                 //and game may now start
                 this.startGame();
@@ -81,18 +109,21 @@ module.exports = class Game {
         }
     }
 
+    //Starts a new game
     startGame() {
         this.state = 1; // game started
         this.emitGameStateUpdate();
-        let players = this.findFirstAvailablePosition({
+        let playerPositions = this.findFirstAvailablePosition({
             collect: true,
             isEmpty: false,
         });
-        this.pokerGame = new PokerGame({ players });
+        this.pokerGame = new PokerGame({ playerPositions });
         this.dealHands();
     }
-    dealHands() {
+    async dealHands() {
         if (this.state < 1) {
+            this.emitGameStateUpdate();
+
             return console.log("this game needs more players");
         }
         //determine big and small blind
@@ -113,28 +144,34 @@ module.exports = class Game {
             collect: true,
             isEmpty: false,
         });
+        this.emitToRoom("cardsDealt", this.positions);
         this.dealCardsToPlayers(positionsToDeal);
         this.cardsDealt = true;
         this.emitGameStateUpdate();
-        this.emitCardDealtToPlayers();
+        // await this.waitFor(3000);
         //for Each player, emit to them thier hand
         Object.keys(this.players).forEach((playerId) => {
             const player = this.players[playerId];
             const socket = this.sockets[player.position];
             socket.emit("yourHand", player.hand);
         });
+        await this.waitFor(1000);
         this.positionsToBet = this.findFirstAvailablePosition({
             startingPos: dealer + 1,
             collect: true,
             isEmpty: false,
         });
+
         this.bettersTurn = this.positionsToBet.shift();
         this.emitGameStateUpdate();
+        this.emitToRoom("playersBettingTurn", this.bettersTurn);
+
         this.betTime = setTimeout(() => {
             this.bettersTurnOutOfTime = this.bettersTurn;
+            this.emitToRoom("playersBettingTurnOutOfTime", this.bettersTurn);
             this.bettersTurn = null;
             this.emitGameStateUpdate();
-        }, 1000 * 15);
+        }, 1000 * 20);
     }
 
     dealCardsToPlayers(positionsToDeal) {
@@ -156,7 +193,7 @@ module.exports = class Game {
                     `Why positions not correct player.position- ${player.position} position- ${position}`
                 );
             }
-            const card = this.pokerGame?.dealPlayer(player.position);
+            const card = this.pokerGame?.dealPlayer(position);
             player.hand.push(card);
             //   }, i * this.timeToDeal);
         });
@@ -184,11 +221,17 @@ module.exports = class Game {
         }
     }
 
-    emitGameStateUpdate() {
-        this.socketIo.to(this.id).emit("updateCurrentGame", this.getState());
+    emitToRoom(event, data) {
+        this.socketIo.to(this.id).emit(event, data);
     }
-    emitCardDealtToPlayers(player) {
-        // this.socketIo.to(this.id).emit("cardDealt", player);
+
+    //TODO: Sanitize this data
+    emitGameStateUpdate() {
+        const gameState = this.getState();
+
+        this.emitToRoom("gameState", gameState);
+
+        this.socketIo.to(this.waitingRoom).emit("updateGameList", gameState);
     }
 
     findFirstAvailablePosition(opts = {}) {
