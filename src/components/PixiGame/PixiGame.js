@@ -24,7 +24,9 @@ export default class PixiGame {
         user,
         gsap,
         globalScale,
+        mySocket,
     }) {
+        this.mySocket = mySocket;
         this.gsap = gsap;
         this.user = user;
         this.YOU = gameState.players[user.id];
@@ -275,18 +277,29 @@ export default class PixiGame {
             this.yourHandSprites[isCard1 ? "card1" : "card2"] = card;
         }
     }
+    chipBalance({ position, chips }) {
+        const mappedPosition = this.seatPositionMap[position];
+
+        const player = this.playerSprites[mappedPosition];
+        player.setBalance(chips);
+    }
 
     yourHand(hand) {
         console.log(hand);
-        // alert(hand);
+
         const [card1File, card2File] = hand;
         const card1Sprite = this.yourHandSprites["card1"];
         const card2Sprite = this.yourHandSprites["card2"];
         this.playerCards = [card1File, card2File];
-        // card1Sprite.setFace(card1File);
-        // card2Sprite.setFace(card2File);
+    }
 
-        debugger;
+    betCheckFold(position, data) {
+        console.log({ position, data });
+        const mappedPosition = this.seatPositionMap[position];
+
+        const player = this.playerSprites[mappedPosition];
+
+        player.betCheckFold(data);
     }
 
     playersBettingTurn(playerPosition) {

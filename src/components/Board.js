@@ -65,6 +65,7 @@ export function Board() {
             user,
             gsap,
             globalScale,
+            mySocket,
 
             margin: {
                 top: 50,
@@ -97,13 +98,20 @@ export function Board() {
                 convertCardToFile(hand[0]),
                 convertCardToFile(hand[1]),
             ];
-            debugger;
             pixiGame.yourHand([card1, card2]);
         });
 
         mySocket.on("playersBettingTurn", (playerPosition) => {
             console.log(playerPosition);
             pixiGame.playersBettingTurn(playerPosition);
+        });
+
+        mySocket.on("chipBalance", ({ position, chips }) => {
+            console.log({
+                position,
+                chips,
+            });
+            pixiGame.chipBalance({ position, chips });
         });
 
         return () => {
@@ -113,6 +121,7 @@ export function Board() {
             mySocket.off("removePlayer");
             mySocket.off("yourHand");
             mySocket.off("playersBettingTurn");
+            mySocket.off("chipBalance");
             pixieAppRef.current.destroy(true, true);
             pixieAppRef.current = null;
             pixiGame.destroy();
@@ -126,7 +135,8 @@ export function Board() {
 
     function runTest() {
         // alert("works");
-        pixiGame.playersBettingTurn(0);
+        // pixiGame.playersBettingTurn(0);
+        pixiGame.betCheckFold(0, { bet: 10 });
     }
 
     if (!gameState.players || !Object.keys(gameState.players)?.length)

@@ -1,13 +1,13 @@
 import {
-    Graphics,
     Container,
+    Graphics,
     Rectangle,
+    Sprite,
     Text,
     TextMetrics,
     TextStyle,
     Texture,
     utils,
-    Sprite,
 } from "pixi.js";
 import { Linear } from "gsap";
 import TextureSprite from "./LoadTextureSprite";
@@ -38,6 +38,12 @@ export default class Player {
         this.playerSelectGfx = playerSelectGfx;
         container.addChild(playerSelectGfx);
 
+        //dealer has no chips
+        // if (this.player.chips) {
+        const balanceText = new Text(this.player.chips);
+        this.balanceText = balanceText || "";
+        container.addChild(balanceText);
+        // }
         this.draw();
     }
 
@@ -48,6 +54,9 @@ export default class Player {
             pixiGame: this.pixiGame,
         });
         await sprite.load();
+
+        this.balanceText.position.y = -sprite.sprite.height;
+        this.balanceText.position.x = -sprite.sprite.width / 2;
 
         this.container.addChild(sprite.sprite);
     }
@@ -122,6 +131,15 @@ export default class Player {
                 this.playerSelectGfx.endFill();
             },
         });
+    }
+
+    setBalance(balance) {
+        this.balanceText.text = balance;
+    }
+
+    betCheckFold(data) {
+        debugger;
+        this.pixiGame.mySocket.emit("betCheckFold", data);
     }
 
     playerError() {

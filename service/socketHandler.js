@@ -65,6 +65,34 @@ module.exports = (io) => {
 
         socket.on("betCheckFold", (data) => {
             console.log(data);
+            const roomMatches = [];
+            socket.rooms.forEach((r) => {
+                const roomMatch = Object.keys(games.games).find(
+                    (roomId) => roomId === r
+                );
+                if (roomMatch) {
+                    roomMatches.push(roomMatch);
+                }
+            });
+            if (roomMatches.length > 1 || roomMatches.length < 1) {
+                throw Error("WHAT ROOOMS MATCH?!");
+            }
+            const roomId = roomMatches[0];
+            const game = games.games[roomId];
+            const [socketPos, gameSocket] = Object.entries(game.sockets).find(
+                ([pos, s]) => {
+                    if (s.id === socket.id) {
+                        return pos;
+                    }
+                }
+            );
+
+            const userSocket = socketIds[socket.id];
+
+            if (parseInt(socketPos) !== userSocket.position) {
+                throw Error("WrongSocket Position");
+            }
+            console.log("WE GOOOD");
         });
 
         // socket.on("selectBox", ({ boxId, gameId }) => {

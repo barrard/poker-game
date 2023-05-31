@@ -5,6 +5,10 @@ module.exports = class Game {
         this.id = uuidv4();
         this.socketIo = socketIo;
         this.waitingRoom = waitingRoom;
+        this.bet = { bigBlind: 10, smallBlind: 5, biggestBet: 0 };
+        this.pot = 0;
+        this.currentBet = 0;
+        this.playerBets = {};
 
         // this.createdBy = user.id;
         //  this.players= { [user.id]: { ...user, score: 0, position: 0 } },
@@ -212,12 +216,35 @@ module.exports = class Game {
                 startingPos: this.dealer + 1,
                 isEmpty: false,
             });
+            this.handlePlayerBet(this.smallBlind, this.bet.smallBlind);
         }
         if (bigBlind == undefined || !this.positions[bigBlind]) {
             this.bigBlind = this.findFirstAvailablePosition({
                 startingPos: this.smallBlind + 1,
                 isEmpty: false,
             });
+            this.handlePlayerBet(this.bigBlind, this.bet.bigBlind);
+        }
+        //subtract blinds, add to pot
+    }
+
+    handlePlayerBet(playerPosition, bet) {
+        const player = this.positions[playerPosition];
+        //bake sure they got the big blind//TODO in this actualy function
+        player.chips -= bet;
+        const socket = this.sockets[playerPosition];
+        this.emitToRoom("chipBalance", {
+            position: playerPosition,
+            chips: player.chips,
+        });
+        this.pot += bet;
+
+        if (!this.playerBets[playerPosition]) {
+            this.playerBets[playerPosition] = 0;
+        }
+        this.playerBets[playerPosition] += bet;
+        if (this.playerBets[playerPosition] > this.bet.biggestBet) {
+            this.bet.biggestBet = this.playerBets[playerPosition];
         }
     }
 
