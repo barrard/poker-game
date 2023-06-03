@@ -11,6 +11,7 @@ import {
 } from "pixi.js";
 // import * as PIXI from "pixi.js";
 import positionLocations from "./utils/positionLocations";
+import boardPositions from "./utils/boardPositions";
 import Player from "./utils/Player";
 import Card from "./utils/Card";
 //CONFIG??
@@ -25,26 +26,33 @@ export default class PixiGame {
         gsap,
         globalScale,
         mySocket,
+        setEventLogs,
     }) {
+        this.setEventLogs = setEventLogs;
         this.mySocket = mySocket;
         this.gsap = gsap;
         this.user = user;
         this.YOU = gameState.players[user.id];
-        this.YOUR_POSITION = 3;
+        this.YOUR_POSITION = 4;
         this.globalScale = globalScale;
         this.positionLocations = positionLocations({ width, height });
+        this.boardCardPositions = boardPositions({ width, height });
 
         this.pixiApp = pixiApp;
         this.width = width;
 
         this.height = height;
         this.gameState = gameState;
+        this.maxPlayers = 8;
 
         this.mainChartContainer = new Container();
         // this.mainChartContainer.scale.x = 0.25;
         // this.mainChartContainer.scale.y = 0.25;
         this.yourHandSprites = { card1: null, card2: null };
         this.playerSprites = {};
+
+        this.playerCards = [];
+        this.flop = [];
 
         this.init();
     }
@@ -138,7 +146,7 @@ export default class PixiGame {
     // }
 
     drawDealer() {
-        console.log("draw dealer");
+        // console.log("draw dealer");
         const location = this.positionLocations["dealer"];
 
         const playerGfx = new Player({
@@ -165,19 +173,23 @@ export default class PixiGame {
     removePlayer(playerPosition) {
         const mappedPosition = this.seatPositionMap[playerPosition];
         const player = this.playerSprites[mappedPosition];
-        player.killAnimations();
+        if (!player) {
+            debugger;
+        }
+        player.killBetTimerAnimation();
         delete this.playerSprites[mappedPosition];
     }
 
     drawPlayers() {
-        console.log("drawPlayers");
+        // console.log("drawPlayers");
+        if (!this.seatPositionMap) return;
         //for each player, DrawPlayer
         Object.keys(this.gameState.players).forEach((playerId) => {
             const player = this.gameState.players[playerId];
             const { position } = player;
             const mappedPosition = this.seatPositionMap[position];
             const location = this.positionLocations[mappedPosition];
-            console.log(location);
+            // console.log(location);
             const playerSprite = new Player({
                 location,
                 pixiGame: this,
@@ -188,8 +200,8 @@ export default class PixiGame {
     }
 
     async makeGameBoard() {
-        console.log("make board");
-        const asset = await Assets.load("/img/poker-table.jpg");
+        // console.log("make board");
+        const asset = await Assets.load("/img/poker-table-marble-gold-3d.png");
         const sprite = Sprite.from(asset);
         // const sprite = Sprite.from("/img/poker-table.jpg");
 
@@ -197,20 +209,31 @@ export default class PixiGame {
         sprite.height = this.height;
 
         this.mainChartContainer.addChild(sprite);
+        if (!this.seatPositionMap) return;
         //draw each seat position
         Object.keys(this.seatPositionMap).forEach((seatKey) => {
-            console.log(
-                seatKey,
-                this.positionLocations[this.seatPositionMap[seatKey]]
-            );
             const pos = this.positionLocations[this.seatPositionMap[seatKey]];
             const seatGfx = new Graphics();
             this.mainChartContainer.addChild(seatGfx);
             seatGfx.position.set(pos.x, pos.y);
 
             seatGfx.clear();
-            seatGfx.beginFill(0xffffff, 1);
+            seatGfx.beginFill(0xffffff, 0.1);
             seatGfx.drawRoundedRect(-25, -25, 50, 50, 5);
+        });
+
+        //draw Board card positions
+        Object.keys(this.boardCardPositions).forEach((position) => {
+            const pos = this.boardCardPositions[position];
+            const seatGfx = new Graphics();
+            this.mainChartContainer.addChild(seatGfx);
+            seatGfx.position.set(pos.x, pos.y);
+            const width = 222 * this.globalScale * 0.5;
+            const height = 323 * this.globalScale * 0.5;
+
+            seatGfx.clear();
+            seatGfx.beginFill(0xffffff, 0.1);
+            seatGfx.drawRoundedRect(-width / 2, -height / 2, width, height, 5);
         });
     }
 
@@ -227,7 +250,7 @@ export default class PixiGame {
 
         let isCard1 = true;
         players.forEach((playerPos, i) => {
-            console.log(`dealing ${isCard1 ? " card 1" : "card 2"}`);
+            // console.log(`dealing ${isCard1 ? " card 1" : "card 2"}`);
             this.dealCard({
                 playerPositions,
                 playerPos,
@@ -239,7 +262,7 @@ export default class PixiGame {
 
         setTimeout(() => {
             players.forEach((playerPos, i) => {
-                console.log(`dealing ${isCard1 ? " card 1" : "card 2"}`);
+                // console.log(`dealing ${isCard1 ? " card 1" : "card 2"}`);
 
                 this.dealCard({
                     playerPositions,
@@ -249,6 +272,52 @@ export default class PixiGame {
                 });
             });
         }, dealDuration);
+    }
+
+    dealFlop(flop) {
+        this.flop = flop;
+        let delayIndex = 0;
+        let position = 0;
+        debugger;
+        this.dealBoardCard(position, ++delayIndex, flop[0]);
+        this.dealBoardCard(++position, ++delayIndex, flop[1]);
+        this.dealBoardCard(++position, ++delayIndex, flop[2]);
+    }
+
+    dealTurn(turn) {
+        console.log(turn);
+        debugger;
+        this.turn = turn;
+        let delayIndex = 0;
+        let position = 3;
+        debugger;
+        this.dealBoardCard(position, ++delayIndex, turn);
+    }
+
+    dealRiver(river) {
+        console.log(river);
+        debugger;
+        this.river = river;
+        let delayIndex = 0;
+        let position = 4;
+        debugger;
+        this.dealBoardCard(position, ++delayIndex, river);
+    }
+
+    dealBoardCard(position, delayIndex, cardValue) {
+        //todo
+        const location = this.boardCardPositions[position];
+
+        debugger;
+        const card = new Card({
+            location,
+            pixiGame: this,
+            // width,
+            // height,
+            isBoardPosition: position,
+            delayIndex,
+            cardValue,
+        });
     }
 
     dealCard({ playerPositions, playerPos, isCard1, delayIndex }) {
@@ -278,53 +347,101 @@ export default class PixiGame {
         }
     }
     chipBalance({ position, chips }) {
-        const mappedPosition = this.seatPositionMap[position];
-
-        const player = this.playerSprites[mappedPosition];
+        const player = this.getPlayer(position);
         player.setBalance(chips);
+    }
+
+    playerCheck({ position }) {
+        const player = this.getPlayer(position);
+        player.check();
+    }
+
+    playerFold({ position }) {
+        const player = this.getPlayer(position);
+        player.fold();
+    }
+
+    playerTurnEnd({ position }) {
+        //clear the timer and select
+
+        const player = this.getPlayer(position);
+        player.endTurn();
+    }
+
+    playerWins({ position }) {
+        const player = this.getPlayer(position);
+        player.win();
+        // this.awardWinner();//TODO doesn't exist
     }
 
     yourHand(hand) {
         console.log(hand);
 
         const [card1File, card2File] = hand;
-        const card1Sprite = this.yourHandSprites["card1"];
-        const card2Sprite = this.yourHandSprites["card2"];
+        // const card1Sprite = this.yourHandSprites["card1"];
+        // const card2Sprite = this.yourHandSprites["card2"];
         this.playerCards = [card1File, card2File];
     }
 
     betCheckFold(position, data) {
-        console.log({ position, data });
-        const mappedPosition = this.seatPositionMap[position];
-
-        const player = this.playerSprites[mappedPosition];
+        // console.log({ position, data });
+        // const mappedPosition = this.seatPositionMap[position];
+        debugger;
+        const player = this.playerSprites[this.YOUR_POSITION];
 
         player.betCheckFold(data);
     }
 
-    playersBettingTurn(playerPosition) {
-        console.log({ playerPosition });
-        const mappedPosition = this.seatPositionMap[playerPosition];
+    playersBettingTurn({ positionsTurn, toCall }) {
+        console.log({ positionsTurn });
+        const mappedPosition = this.seatPositionMap[positionsTurn];
         const playerSprite = this.playerSprites[mappedPosition];
         playerSprite.playerSelect();
+        //add to messages
+        if (mappedPosition === this.YOUR_POSITION) {
+            this.setEventLogs((logs) => {
+                return [
+                    ...logs,
+                    { color: "blue", msg: `You turn to call ${toCall}` },
+                ];
+            });
+        } else {
+            this.setEventLogs((logs) => {
+                return [
+                    ...logs,
+                    {
+                        color: "blue",
+                        msg: `Player ${mappedPosition} turn to call ${toCall}`,
+                    },
+                ];
+            });
+        }
     }
 
     createSeatPositionMap() {
+        if (!this.YOU) return;
         this.gamePositions = Object.keys(this.gameState.positions);
         this.seatPositionMap = {
             [this.YOU.position]: this.YOUR_POSITION,
         };
 
-        while (Object.keys(this.seatPositionMap).length < 7) {
+        while (Object.keys(this.seatPositionMap).length < this.maxPlayers) {
             let newPos =
                 this.YOU.position + Object.keys(this.seatPositionMap).length;
             let newRelativePosition =
                 this.YOUR_POSITION + Object.keys(this.seatPositionMap).length;
-            if (newPos > 6) newPos -= 7;
-            if (newRelativePosition > 6) newRelativePosition -= 7;
+            if (newPos > this.maxPlayers - 1) newPos -= this.maxPlayers;
+            if (newRelativePosition > this.maxPlayers - 1)
+                newRelativePosition -= this.maxPlayers;
 
             this.seatPositionMap[newPos] = newRelativePosition;
         }
+    }
+
+    getPlayer(position) {
+        const mappedPosition = this.seatPositionMap[position];
+        const player = this.playerSprites[mappedPosition];
+        return player;
     }
 
     destroy() {

@@ -25,11 +25,15 @@ export default class Card {
             // card,
             dealerLocation,
             isCard1,
+            isBoardPosition,
             delayIndex,
+            cardValue,
         } = opts;
-        const scale = isYou ? 0.5 : 0.25;
+        debugger;
+        this.isBoardPosition = isBoardPosition;
+        const scale = isYou || isBoardPosition !== undefined ? 0.5 : 0.25;
         const { x, y } = location;
-        this.x = x + 222 * scale;
+        this.x = this.isBoardPosition !== undefined ? x : x + 222 * scale;
         this.y = y; ///+ 323; //* scale;
         this.dealerLocation = pixiGame.positionLocations["dealer"];
         this.location = location;
@@ -42,6 +46,7 @@ export default class Card {
         this.cardHeight = 323;
         this.scale = scale;
         this.isCard1 = isCard1;
+        this.cardValue = cardValue;
 
         this.init();
     }
@@ -112,16 +117,24 @@ export default class Card {
             5
         );
 
-        const x = this.isCard1
-            ? this.x - this.width * 0.35
-            : this.x + this.width * 0.15;
+        const x =
+            this.isBoardPosition !== undefined
+                ? this.x
+                : this.isCard1
+                ? this.x - this.width * 0.35
+                : this.x + this.width * 0.15;
         const y = this.y;
         console.log({ x, y });
         this.pixiGame.gsap.to(this.container, {
             pixi: {
                 x: x,
                 y: y,
-                angle: this.isCard1 ? 360 - 10 : 360 + 5,
+                angle:
+                    this.isBoardPosition !== undefined
+                        ? 0
+                        : this.isCard1
+                        ? 360 - 10
+                        : 360 + 5,
 
                 scale: 1,
             },
@@ -133,7 +146,7 @@ export default class Card {
     }
 
     flipCard() {
-        if (this.isYOU) {
+        if (this.isYOU || this.isBoardPosition !== undefined) {
             const timeline = this.pixiGame.gsap.timeline({
                 onUpdate: async (v) => {
                     if (this.cardFaceDrawn) return;
@@ -141,9 +154,13 @@ export default class Card {
                         this.container.skew["_y"] >= Math.PI / 2 &&
                         !this.cardFaceDrawn
                     ) {
-                        const cardFile = this.isCard1
-                            ? this.pixiGame.playerCards[0]
-                            : this.pixiGame.playerCards[1];
+                        const cardFile =
+                            this.isBoardPosition !== undefined
+                                ? this.cardValue
+                                : this.isCard1
+                                ? this.pixiGame.playerCards[0]
+                                : this.pixiGame.playerCards[1];
+                        debugger;
                         const textureUrl = `/img/cards/${cardFile}.png`;
                         const texture = await Assets.load(textureUrl);
 

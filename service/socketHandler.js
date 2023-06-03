@@ -3,54 +3,45 @@ const rp = require("request-promise");
 const Game = require("../classes/Game");
 const GamesManager = require("../classes/GamesManager");
 
-const games = new GamesManager();
+const gamesManager = new GamesManager();
 const userGames = {};
+const socketRoomMap = {};
 let socketIo;
 const sockets = {};
-const socketIds = {};
+const socketUserMap = {};
 const waitingRoom = "waiting room";
 
 const playerLimit = 7;
 module.exports = (io) => {
     socketIo = io;
-    io.on("disconnection", (socket) => {
-        console.log(`Disconn`);
-    });
-    io.on("disconnect", (socket) => {
-        console.log(`Disconnedd`);
-    });
-    io.on("connection", async (socket) => {
-        console.log("CONNECTED");
-        socket.join(waitingRoom);
-        //create uuid
 
+    io.on("connection", async (socket) => {
+        socket.on("disconnect", () => {
+            handleDisconnect(socket);
+        });
+        console.log("CONNECTED");
+        joinRoom(socket, waitingRoom);
+        //create uuid
         let user = await getUser();
         console.log("a user connected assigned as " + user.name);
         sockets[user.id] = socket;
         console.log(socket.id);
-        socketIds[socket.id] = user;
+        socketUserMap[socket.id] = user;
         //send the user thier ID
         socket.emit("setUser", user);
-        //send them all the games
-        socket.emit("gameList", games.getGamesState());
+        //send them all the gamesManager
+        socket.emit("gameList", gamesManager.getGamesState());
 
         socket.on("createGame", () => {
-            let user = socketIds[socket.id];
+            let user = socketUserMap[socket.id];
             if (!user) return console.log("No user found");
-            //make sure they havent already started a game
-            // if (userGames[user.id]) {
-            //     //already have a game started
-            //     socket.emit("error", {
-            //         msg: `You already have a game at ${userGames[user.id]}`,
-            //     });
-            // } else {
-            //create game id
-            // let game = createNewGame(user);
+
             let game = new Game({ socketIo, waitingRoom });
+            joinRoom(socket, game.id);
             game.addPlayer(user, socket);
             // let position = game.players[user.id].position;
-            games.addGame(game);
-            io.to(waitingRoom).emit("gameList", games.getGamesState());
+            gamesManager.addGame(game);
+            io.to(waitingRoom).emit("gameList", gamesManager.getGamesState());
         });
 
         socket.on("joinGame", (gameId) => {
@@ -65,80 +56,167 @@ module.exports = (io) => {
 
         socket.on("betCheckFold", (data) => {
             console.log(data);
-            const roomMatches = [];
-            socket.rooms.forEach((r) => {
-                const roomMatch = Object.keys(games.games).find(
-                    (roomId) => roomId === r
-                );
-                if (roomMatch) {
-                    roomMatches.push(roomMatch);
-                }
-            });
-            if (roomMatches.length > 1 || roomMatches.length < 1) {
-                throw Error("WHAT ROOOMS MATCH?!");
-            }
-            const roomId = roomMatches[0];
-            const game = games.games[roomId];
-            const [socketPos, gameSocket] = Object.entries(game.sockets).find(
-                ([pos, s]) => {
-                    if (s.id === socket.id) {
-                        return pos;
-                    }
-                }
-            );
 
-            const userSocket = socketIds[socket.id];
-
-            if (parseInt(socketPos) !== userSocket.position) {
-                throw Error("WrongSocket Position");
+            const roomId = getRoomId(socket);
+            if (roomId === null) {
+                return console.log("Room is nulllllll");
             }
+            const game = gamesManager.getGame(roomId);
+
+            const userSocket = verifyUserSocket(game, socket);
+
             console.log("WE GOOOD");
-        });
+            //whats this gamesManager current biggest bet?
+            const positionBetting = game.bettersTurn;
+            const playerPosition = game.bettersTurn;
+            if (positionBetting !== userSocket.position) {
+                return socket.emit("error", {
+                    msg: "Betting out of turn",
+                });
+            }
+            const biggestBet = game.bet.biggestBet;
+            const currentBetSize = game.bet.biggestBet;
+            const playerChips = userSocket.chips;
+            const player = game.positions[playerPosition];
+            const playersCurrentBet = player.bet;
+            const needsToBet = biggestBet - playersCurrentBet;
 
-        // socket.on("selectBox", ({ boxId, gameId }) => {
-        //   let game = games[gameId];
-        //   if (!game) {
-        //     socket.emit("error", {
-        //       msg: `Game doesn't exist`,
-        //     });
-        //     return socket.emit("updateCurrentGame", null);
-        //   }
-        //   let box = game.boxes[boxId];
-        //   let user = socketIds[socket.id];
-        //   if (!user) return console.log("No user found");
-        //   let player = game.players[user.id];
-        //   if (!player) return console.log("No user found");
-        //   let color = player.color;
-        //   if (!box.color) {
-        //     box.color = color;
-        //     player.score++;
-        //     game.availableBoxes--;
-        //   }
-        //   io.to(gameId).emit("updateCurrentGame", game);
-        //   if (game.availableBoxes === 0) {
-        //     game.state = 3;
-        //     //get the winner
-        //     let highScore = 0;
-        //     let winner;
-        //     Object.keys(game.players).forEach((userId) => {
-        //       let { score } = game.players[userId];
-        //       if (score > highScore) {
-        //         highScore = score;
-        //         winner = game.players[userId];
-        //       }
-        //     });
-        //     game.winner = winner;
-        //     io.to(gameId).emit("updateCurrentGame", game);
-        //     io.to(waitingRoom).emit("updateGameList", game);
-        //   }
-        // });
+            //is this bet, check, fold?
+            for (let action in data) {
+                if (action === "bet") {
+                    //does this bet meet or exceed th current bet?
+                    const playersBet = data[action];
+                    //does the player have enough to cover this bet?
+                    if (playerChips < playersBet) {
+                        return socket.emit("error", {
+                            msg: "No Can Bet More Than You Got",
+                        });
+                        //Is the bet less than required amount
+                    } else if (playersBet < needsToBet) {
+                        //possible side game?
+                        //players bet should be more than 0, and equal to all their remaining chips
+                        if (playersBet === 0) {
+                            return socket.emit("error", {
+                                msg: "Almost had a side bet",
+                            });
+                        } else {
+                            //TODO
+                            //think more about how to handle this
+                            game.handlePlayerBet(positionBetting, playersBet);
+                            game.nextPositionToBet();
 
-        socket.on("disconnect", () => {
-            let userId = socketIds[socket.id];
-            console.log(`user ${userId} disconnected`);
+                            return socket.emit("error", {
+                                msg: "Side bet initiated",
+                            });
+                        }
+                    } else {
+                        game.handlePlayerBet(positionBetting, playersBet);
+                        game.nextPositionToBet();
+                    }
+                } else if (action === "check") {
+                    //check if they can check
+
+                    //is there a current bet you must match?
+                    if (needsToBet > 0) {
+                        return socket.emit("error", {
+                            msg: "You can't Check",
+                        });
+                    } else {
+                        game.handlePlayerCheck(playerPosition);
+                        game.nextPositionToBet();
+                    }
+                } else if (action === "fold") {
+                    game.handlePlayerFold(playerPosition);
+                    game.nextPositionToBet();
+                } else {
+                    throw Error(`What is this ${action}`);
+                }
+            }
         });
     });
 };
+
+function handleDisconnect(socket) {
+    let user = socketUserMap[socket.id];
+    let roomId = socketRoomMap[socket.id];
+
+    if (user === null) {
+        console.log("user is nulllllll");
+    } else {
+        console.log(`user ${user?.name} disconnected`);
+    }
+    // const roomId = getRoomId(socket);
+    if (roomId === null) {
+        return console.log("Room is nulllllll");
+    }
+
+    leaveGame(socket, roomId);
+}
+function getRoomId(socket) {
+    const room = socketRoomMap[socket.id];
+    // const roomMatches = [];
+    // socket.rooms.forEach((r) => {
+    //     const roomMatch = Object.keys(gamesManager.games).find(
+    //         (roomId) => roomId === r
+    //     );
+    //     if (roomMatch) {
+    //         roomMatches.push(roomMatch);
+    //     }
+    // });
+    // if (roomMatches.length > 1 || roomMatches.length < 1) {
+    //     return null;
+    //     // throw Error("WHAT ROOOMS MATCH?!");
+    // }
+    // const roomId = roomMatches[0];
+    return room;
+}
+
+function verifyUserSocket(game, socket) {
+    const [socketPos, gameSocket] = Object.entries(game.sockets).find(
+        ([pos, s]) => {
+            if (s.id === socket.id) {
+                return pos;
+            }
+        }
+    );
+
+    const userSocket = socketUserMap[socket.id];
+
+    if (parseInt(socketPos) !== userSocket.position) {
+        throw Error("WrongSocket Position");
+    }
+    return userSocket;
+}
+
+function joinRoom(socket, room) {
+    socket.join(room);
+    if (!socketRoomMap[socket.id]) {
+        socketRoomMap[room] = "";
+    }
+    socketRoomMap[socket.id] = room;
+}
+
+function leaveRoom(socket, room) {
+    const roomId = socketRoomMap[socket.id];
+    if (!room) {
+        console.log("No room");
+    } else {
+        delete socketRoomMap[socket.id];
+
+        if (roomId === waitingRoom) {
+            console.log("Later hater");
+        } else {
+            const game = gamesManager.games[roomId];
+            let user = socketUserMap[socket.id];
+            if (!user) {
+                console.log("WTF??");
+            }
+            if (game) {
+                game.removePlayer(user, socket);
+            }
+        }
+    }
+}
 
 async function getUser() {
     try {
@@ -167,62 +245,36 @@ function createNewGame(socketIo) {
 }
 
 function leaveGame(socket, gameId) {
-    let user = socketIds[socket.id];
+    let user = socketUserMap[socket.id];
     //make sure player limit is not reached
-    let game = games.getGame(gameId);
+    let game = gamesManager.getGame(gameId);
     if (!game) {
         socket.emit("error", { msg: "Game does not exist" });
-        socket.emit("gameList", games.getGamesState());
+        socket.emit("gameList", gamesManager.getGamesState());
 
         return;
     }
-    game.removePlayer(user, socket, game);
+    leaveRoom(socket, gameId);
+
+    if (socket.connected) {
+        joinRoom(socket, waitingRoom);
+        socket.emit("gameList", gamesManager.getGamesState());
+    }
 }
 
 function joinGame(socket, gameId) {
-    let user = socketIds[socket.id];
+    let user = socketUserMap[socket.id];
     //make sure player limit is not reached
-    let game = games.getGame(gameId);
+    let game = gamesManager.getGame(gameId);
     if (!game) {
         socket.emit("error", { msg: "Game does not exist" });
-        socket.emit("gameList", games.getGamesState());
+        socket.emit("gameList", gamesManager.getGamesState());
 
         return;
     }
+    joinRoom(socket, game.id);
+
     game.addPlayer(user, socket);
-    // let playerCount = Object.keys(game.players).length;
-    // if (playerCount >= playerLimit) {
-    //   socket.emit("error", {
-    //     msg: "This game has reached its player limit",
-    //   });
-    // } else {
-    // if (Object.keys(game.players).length == 1) {
-    //   //this is the second person to join and the game can now start.
-    //   //this person will be small blind
-    // }
-    // game.players[user.id] = { ...user, score: 0, position: playerCount };
-    //tell the socket to join the game
-    // socket.emit("joiningGame", { game });
-    //exit waiting room channel
-    // socket.leave(waitingRoom);
-    //update game list for waiting room
-    //tell the game room someone joined.
-    // socketIo.to(gameId).emit("updateCurrentGame", game);
-    //tell socket to join the game channel
-    // socket.join(gameId);
-    //if the player count is hit, start game count down
-    // if (Object.keys(game.players).length === playerLimit) {
-    // console.log("the game is ready to start");
-    // game.state = 1;
-    // socketIo.to(gameId).emit("updateCurrentGame", game);
-    // setTimeout(() => {
-    //   game.state = 2;
-    //   socketIo.to(gameId).emit("updateCurrentGame", game);
-    //   socketIo.to(waitingRoom).emit("updateGameList", game);
-    // }, 5000);
-    // }
-    // socketIo.to(waitingRoom).emit("updateGameList", game);
-    // }
 }
 
 /**

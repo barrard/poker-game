@@ -16,6 +16,7 @@ export default class Player {
     constructor(opts = {}) {
         const { location = {} } = opts;
         const { x, y } = location;
+        this.playerBetTime = 20;
 
         this.location = opts.location;
         this.pixiGame = opts.pixiGame;
@@ -54,9 +55,10 @@ export default class Player {
             pixiGame: this.pixiGame,
         });
         await sprite.load();
-
-        this.balanceText.position.y = -sprite.sprite.height;
-        this.balanceText.position.x = -sprite.sprite.width / 2;
+        this.balanceText.anchor.x = 0.5;
+        this.balanceText.anchor.y = 0.5;
+        this.balanceText.position.y = 0; // -sprite.sprite.height;
+        this.balanceText.position.x = 0; // -sprite.sprite.width / 2;
 
         this.container.addChild(sprite.sprite);
     }
@@ -102,16 +104,16 @@ export default class Player {
 
         const angles = { end: Math.PI * 2 };
 
-        this.animationTimer = this.pixiGame.gsap.to(angles, {
+        this.betTimerAnimation = this.pixiGame.gsap.to(angles, {
             end: 0,
 
             ease: Linear.easeNone,
 
-            duration: 20,
+            duration: this.playerBetTime,
             onUpdate: () => {
                 if (!this.playerSelectGfx?._geometry) {
                     debugger;
-                    this.killAnimations();
+                    this.killBetTimerAnimation();
                     return;
                 }
                 this.playerSelectGfx.clear();
@@ -133,6 +135,48 @@ export default class Player {
         });
     }
 
+    check() {
+        //TODO: draw a big check mark or whatever shows this action
+        this.drawError(0x00ffaa); //sorta greenish blue
+    }
+
+    fold() {
+        this.drawError(0xff0099); //sorta reddish blue
+    }
+    endTurn() {
+        this.killBetTimerAnimation();
+        if (!this.playerSelectGfx?._geometry) {
+            this.playerSelectGfx.clear();
+        }
+        if (!this.playerTimerGfx?._geometry) {
+            this.playerTimerGfx.clear();
+        }
+    }
+    win() {
+        this.drawError(0x00ff55); //sorta greenish blue
+    }
+
+    drawError(color) {
+        this.errorGfx.clear();
+
+        this.errorGfx.lineStyle(5, color, 0.5);
+        // Draw an arc
+        const x = 0; // X-coordinate of the center point
+        const y = 0; // Y-coordinate of the center point
+        const radius = 50; // Radius of the arc
+        const startAngle = 0; // Starting angle in radians
+        const endAngle = Math.PI * 2; // Ending angle in radians
+        const anticlockwise = false; // Clockwise (false) or anticlockwise (true)
+
+        this.errorGfx.arc(x, y, radius, startAngle, endAngle, anticlockwise);
+
+        // End the shape
+        this.errorGfx.endFill();
+        setTimeout(() => {
+            this.errorGfx.clear();
+        }, 1000);
+    }
+
     setBalance(balance) {
         this.balanceText.text = balance;
     }
@@ -142,18 +186,14 @@ export default class Player {
         this.pixiGame.mySocket.emit("betCheckFold", data);
     }
 
-    playerError() {
+    playerError(color) {
         // const playerError = useCallback((g) => {
         this.errorGfx.clear();
-
-        // }, []);
-
-        // return <Graphics anchor={0.5} draw={playerError} />;
     }
 
-    killAnimations() {
-        if (this.animationTimer) {
-            this.animationTimer.kill();
+    killBetTimerAnimation() {
+        if (this.betTimerAnimation) {
+            this.betTimerAnimation.kill();
         }
     }
 

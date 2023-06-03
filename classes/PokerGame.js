@@ -13,6 +13,9 @@ module.exports = class PokerGame {
         this.deck.shuffle();
         this.deck.shuffle();
 
+        this.board = [];
+        this.winner = { score: Infinity, sameScore: [] };
+
         // this.dealPlayers();
 
         // this.dealFlop();
@@ -21,73 +24,76 @@ module.exports = class PokerGame {
         // this.determineBestHand();
     }
 
-    determineBestHand() {
-        Object.keys(this.players).forEach((player) => {
-            const playerHand = [
-                ...this.players[player].hand,
-                ...this.flop,
-                this.turn,
-                this.river,
-            ];
+    // determineBestHand() {
+    //     Object.keys(this.players).forEach((player) => {
+    //         const playerHand = [
+    //             ...this.players[player].hand,
+    //             ...this.flop,
+    //             this.turn,
+    //             this.river,
+    //         ];
 
-            //   console.log(`${player} - hand`);
-            //   console.log(playerHand);
-            this.players[player].bestHand = this.getBestHand(playerHand);
-            if (this.players[player].bestHand.rank === "ROYAL_FLUSH") {
-                console.log("GOT PNE");
-            }
-            //   console.log(`${player} - hand`);
-            //   console.log(this.players[player].bestHand);
-            //   console.log(this.players[player].bestHand.score);
-            if (this.players[player].bestHand.score < this.winner.score) {
-                this.winner = {
-                    player,
-                    ...this.players[player],
-                    score: this.players[player].bestHand.score,
-                };
-            }
-        });
-        // console.log("This Winner is");
-        // console.log(this.winner);
-        const card1 = this.scoreCard(this.winner.hand[0]);
-        const card2 = this.scoreCard(this.winner.hand[1]);
-        let cardKey = "";
-        if (card1.score > card2.score) {
-            cardKey = `${card1.card},${card2.card}`;
-        } else {
-            cardKey = `${card2.card},${card1.card}`;
-        }
-        if (!this.winningHands[cardKey]) {
-            this.winningHands[cardKey] = 0;
-        }
-        this.winningHands[cardKey]++;
+    //         //   console.log(`${player} - hand`);
+    //         //   console.log(playerHand);
+    //         this.players[player].bestHand = this.getBestHand(playerHand);
+    //         if (this.players[player].bestHand.rank === "ROYAL_FLUSH") {
+    //             console.log("GOT PNE");
+    //         }
+    //         //   console.log(`${player} - hand`);
+    //         //   console.log(this.players[player].bestHand);
+    //         //   console.log(this.players[player].bestHand.score);
+    //         if (this.players[player].bestHand.score < this.winner.score) {
+    //             this.winner = {
+    //                 player,
+    //                 ...this.players[player],
+    //                 score: this.players[player].bestHand.score,
+    //             };
+    //         }
+    //     });
+    //     // console.log("This Winner is");
+    //     // console.log(this.winner);
+    //     const card1 = this.scoreCard(this.winner.hand[0]);
+    //     const card2 = this.scoreCard(this.winner.hand[1]);
+    //     let cardKey = "";
+    //     if (card1.score > card2.score) {
+    //         cardKey = `${card1.card},${card2.card}`;
+    //     } else {
+    //         cardKey = `${card2.card},${card1.card}`;
+    //     }
+    //     if (!this.winningHands[cardKey]) {
+    //         this.winningHands[cardKey] = 0;
+    //     }
+    //     this.winningHands[cardKey]++;
+    // }
+    // scoreCard(card) {
+    //     const [type, suit] = card.split("");
+    //     const suits = ["H", "D", "C", "S"];
+
+    //     const ranks = [
+    //         "A",
+    //         "2",
+    //         "3",
+    //         "4",
+    //         "5",
+    //         "6",
+    //         "7",
+    //         "8",
+    //         "9",
+    //         "T",
+    //         "J",
+    //         "Q",
+    //         "K",
+    //     ];
+    //     const suitIndex = suits.indexOf(suit) + 1;
+    //     const rankIndex = ranks.indexOf(type) + 1;
+    //     // console.log({ suitIndex, rankIndex });
+    //     const score = rankIndex * (suitIndex * ranks.length);
+    //     return { suitIndex, rankIndex, score, card };
+    // }
+
+    dealBoard(position) {
+        this.board.push(this.deck.drawCard());
     }
-    scoreCard(card) {
-        const [type, suit] = card.split("");
-        const suits = ["H", "D", "C", "S"];
-
-        const ranks = [
-            "A",
-            "2",
-            "3",
-            "4",
-            "5",
-            "6",
-            "7",
-            "8",
-            "9",
-            "T",
-            "J",
-            "Q",
-            "K",
-        ];
-        const suitIndex = suits.indexOf(suit) + 1;
-        const rankIndex = ranks.indexOf(type) + 1;
-        // console.log({ suitIndex, rankIndex });
-        const score = rankIndex * (suitIndex * ranks.length);
-        return { suitIndex, rankIndex, score, card };
-    }
-
     dealFlop() {
         this.flop = [];
         this.flop.push(this.deck.drawCard());
@@ -111,20 +117,38 @@ module.exports = class PokerGame {
         // console.log(this.turn);
     }
 
+    dealBoard(position) {
+        const card = this.deck.drawCard();
+        this.board[position] = card;
+        return card;
+    }
+
     dealPlayer(player) {
         const card = this.deck.drawCard();
         this.players[player].hand.push(card);
         return card;
     }
 
-    // dealPlayers() {
-    //     Object.keys(this.players).forEach((player) => {
-    //         this.players[player].hand.push(this.deck.drawCard());
-    //     });
-    //     Object.keys(this.players).forEach((player) => {
-    //         this.players[player].hand.push(this.deck.drawCard());
-    //     });
-    // }
+    determineWinner() {
+        const { board } = this;
+
+        Object.keys(this.players).forEach((position) => {
+            const player = this.players[position];
+            const { hand } = player;
+            player.bestHand = this.getBestHand([...board, ...hand]);
+
+            if (player.bestHand.score < this.winner.score) {
+                this.winner = { ...player, score: player.bestHand.score };
+                this.winner.sameScore = [];
+            } else if (player.bestHand.score == this.winner.score) {
+                this.winner.sameScore.push({
+                    ...player,
+                    score: player.bestHand.score,
+                });
+            }
+        });
+        return this.winner;
+    }
 
     getBestHand(cards) {
         const hands = [];
@@ -137,8 +161,7 @@ module.exports = class PokerGame {
                 return acc;
             }, "");
             const hand = new PokerHand(c);
-            //   console.log(hand);
-            //   console.log(hand.describe());
+
             hands.push(hand);
             if (hand.score < bestHand.score) {
                 bestHand = hand;
@@ -167,41 +190,4 @@ module.exports = class PokerGame {
         generateCombinationHelper([], 0);
         return combinations;
     }
-
-    //   generateCombinations(cards, size) {
-    //     const combinations = [];
-    //     const indices = Array.from(Array(size).keys());
-
-    //     this.generateCombinationHelper(cards, combinations, indices, 0, size - 1, 0);
-    //     return combinations;
-    //   }
-
-    //   generateCombinationHelper(cards, combinations, indices, start, end, index) {
-    //     if (index === indices.length) {
-    //       const combination = indices.map((i) => cards[i]);
-    //       combinations.push(combination);
-    //       return;
-    //     }
-
-    //     for (let i = start; i <= end && end - i + 1 >= indices.length - index; i++) {
-    //       indices[index] = i;
-    //       this.generateCombinationHelper(cards, combinations, indices, i + 1, end, index + 1);
-    //     }
-    //   }
-
-    //   evaluateHand(hand) {
-    //     // Implement your hand evaluation logic here
-    //     // This should return an object representing the evaluated hand
-    //     // The object should contain properties like 'rank', 'name', and any additional details
-
-    //     // Placeholder implementation that returns a random rank
-    //     const ranks = ["High Card", "Pair", "Two Pair", "Three of a Kind", "Straight", "Flush", "Full House", "Four of a Kind", "Straight Flush", "Royal Flush"];
-    //     const randomRankIndex = Math.floor(Math.random() * ranks.length);
-    //     const randomRank = ranks[randomRankIndex];
-
-    //     return {
-    //       rank: randomRankIndex,
-    //       name: randomRank,
-    //     };
-    //   }
 };

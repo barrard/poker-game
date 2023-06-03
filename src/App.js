@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { withRouter, Route, useHistory, useLocation } from "react-router-dom";
-
+import Col from "react-bootstrap/Col";
+import Row from "react-bootstrap/Row";
 import {
     Avatar,
     CountDown,
@@ -40,6 +41,14 @@ function App(props) {
     const [currentHand, setCurrentHand] = useState([]);
     const [errMsg, setErrMsg] = useState({});
     const [socketConnected, setSocketConnected] = useState(null);
+    const [eventLogs, setEventLogs] = useState([
+        { msg: "Some nice messages for yoouuuu,,,,", color: "blue" },
+        { msg: "Some nice messages for yoouuuu,,,,", color: "green" },
+        { msg: "Some nice messages for yoouuuu,,,,", color: "red" },
+        { msg: "Some nice messages for yoouuuu,,,,", color: "blue" },
+        { msg: "Some nice messages for yoouuuu,,,,", color: "green" },
+        { msg: "Some nice messages for yoouuuu,,,,", color: "red" },
+    ]);
 
     useEffect(() => {
         const socket = socketIOClient(ENDPOINT, {
@@ -106,6 +115,8 @@ function App(props) {
                 setGameList,
                 errMsg,
                 setErrMsg,
+                eventLogs,
+                setEventLogs,
             }}
         >
             <div
@@ -118,7 +129,7 @@ function App(props) {
                 }}
             >
                 {/* User messages? */}
-                <div>
+                <Row className="">
                     {errMsg.msg && (
                         <>
                             <Alert background="tomato">{errMsg.msg}</Alert>
@@ -127,7 +138,7 @@ function App(props) {
                     )}
                     {user && <h3>Hello {user.name}</h3>}
                     {!user && <h3>Connecting....</h3>}
-                </div>
+                </Row>
                 <Route
                     exact
                     path="/"

@@ -6,6 +6,7 @@ import React, {
     useMemo,
     useContext,
 } from "react";
+import { EventsLog } from "./StyledComponents";
 import styled, { keyframes } from "styled-components";
 import Reward from "react-rewards";
 import { gsap } from "gsap";
@@ -28,7 +29,8 @@ const tableHeight = (tableWidth / 1920) * 1080;
 const globalScale = tableWidth / 1920;
 
 export function Board() {
-    const { user, mySocket, currentHand, gameState } = useContext(MainContext);
+    const { user, mySocket, currentHand, gameState, setEventLogs } =
+        useContext(MainContext);
 
     // console.log({ gameState, user, tableHeight, tableWidth });
 
@@ -38,7 +40,7 @@ export function Board() {
     const [pixiGame, setPixiGame] = useState(null);
 
     useEffect(() => {
-        // if (!pixiCanvasRef.current) return;
+        if (!pixiCanvasRef.current) return;
         console.log("--- mont the board?");
 
         pixieAppRef.current = new PIXI.Application({
@@ -51,13 +53,15 @@ export function Board() {
             resolution: 4,
             autoDensity: true, // !!!
         });
-        pixieAppRef.current.view.style["image-rendering"] = "pixelated";
+        // pixieAppRef.current.view.style["image-rendering"] = "pixelated";
+        if (!pixieAppRef.current) return;
 
         pixieAppRef.current.stage.interactive = true;
 
         pixiCanvasRef.current.appendChild(pixieAppRef.current.view);
 
         const pixiGame = new PixiGame({
+            setEventLogs: setEventLogs,
             pixiApp: pixieAppRef.current,
             height: tableHeight,
             width: tableWidth,
@@ -101,9 +105,9 @@ export function Board() {
             pixiGame.yourHand([card1, card2]);
         });
 
-        mySocket.on("playersBettingTurn", (playerPosition) => {
-            console.log(playerPosition);
-            pixiGame.playersBettingTurn(playerPosition);
+        mySocket.on("playersBettingTurn", ({ positionsTurn, toCall }) => {
+            console.log(positionsTurn);
+            pixiGame.playersBettingTurn({ positionsTurn, toCall });
         });
 
         mySocket.on("chipBalance", ({ position, chips }) => {
@@ -114,6 +118,109 @@ export function Board() {
             pixiGame.chipBalance({ position, chips });
         });
 
+        mySocket.on("playerCheck", ({ position }) => {
+            // alert(`Player ${position} checks`);
+            setEventLogs((logs) => {
+                return [
+                    ...logs,
+                    {
+                        color: "white",
+                        msg: `Player ${position} checks`,
+                    },
+                ];
+            });
+            pixiGame.playerCheck({ position });
+        });
+
+        mySocket.on("playerFold", ({ position }) => {
+            // alert(`Player ${position} folds`);
+            setEventLogs((logs) => {
+                return [
+                    ...logs,
+                    {
+                        color: "tomato",
+                        msg: `Player ${position} folds`,
+                    },
+                ];
+            });
+            pixiGame.playerFold({ position });
+        });
+
+        mySocket.on("playerTurnEnd", ({ position }) => {
+            // console.log(`Player ${position} end turn`);
+            setEventLogs((logs) => {
+                return [
+                    ...logs,
+                    {
+                        color: "red",
+                        msg: `Player ${position} end turn`,
+                    },
+                ];
+            });
+            pixiGame.playerTurnEnd({ position });
+        });
+
+        mySocket.on("playerWins", ({ position }) => {
+            // alert(`Player ${position} Wins`);
+            setEventLogs((logs) => {
+                return [
+                    ...logs,
+                    {
+                        color: "green",
+                        msg: `Player ${position} Wins`,
+                    },
+                ];
+            });
+            pixiGame.playerWins({ position });
+        });
+
+        mySocket.on("theFlop", ({ flop }) => {
+            debugger;
+            // alert("FLOP");
+            setEventLogs((logs) => {
+                return [
+                    ...logs,
+                    {
+                        color: "yellow",
+                        msg: `Flop ${flop}`,
+                    },
+                ];
+            });
+            flop = flop.map((card) => convertCardToFile(card));
+            pixiGame.dealFlop(flop);
+        });
+
+        mySocket.on("theTurn", ({ turn }) => {
+            debugger;
+            // alert("TURN");
+            setEventLogs((logs) => {
+                return [
+                    ...logs,
+                    {
+                        color: "yellow",
+                        msg: `Turn ${turn}`,
+                    },
+                ];
+            });
+            turn = convertCardToFile(turn);
+            pixiGame.dealTurn(turn);
+        });
+
+        mySocket.on("theRiver", ({ river }) => {
+            debugger;
+            // alert("River");
+            setEventLogs((logs) => {
+                return [
+                    ...logs,
+                    {
+                        color: "yellow",
+                        msg: `River ${river}`,
+                    },
+                ];
+            });
+            river = convertCardToFile(river);
+            pixiGame.dealRiver(river);
+        });
         return () => {
             console.log("un mont the board?");
             mySocket.off("cardsDealt");
@@ -122,6 +229,13 @@ export function Board() {
             mySocket.off("yourHand");
             mySocket.off("playersBettingTurn");
             mySocket.off("chipBalance");
+            mySocket.off("playerFold");
+            mySocket.off("playerCheck");
+            mySocket.off("playerTurnEnd");
+            mySocket.off("playerWins");
+            mySocket.off("theFlop");
+            mySocket.off("theTurn");
+            mySocket.off("theRiver");
             pixieAppRef.current.destroy(true, true);
             pixieAppRef.current = null;
             pixiGame.destroy();
@@ -133,10 +247,13 @@ export function Board() {
         console.log(gameState);
     }, [gameState]);
 
+    function bet5() {
+        pixiGame.betCheckFold(0, { bet: 5 });
+    }
     function runTest() {
         // alert("works");
         // pixiGame.playersBettingTurn(0);
-        pixiGame.betCheckFold(0, { bet: 10 });
+        pixiGame.dealFlop(["5S", "3H", "KD"]);
     }
 
     if (!gameState.players || !Object.keys(gameState.players)?.length)
@@ -144,14 +261,25 @@ export function Board() {
 
     return (
         <BoardContainer>
-            <button
-                onClick={() => {
-                    runTest();
-                }}
-            >
-                TEST
-            </button>
-            gogo?
+            <TestButtonsContainer>
+                <button
+                    onClick={() => {
+                        bet5();
+                    }}
+                >
+                    BET5
+                </button>
+                <button
+                    onClick={() => {
+                        runTest();
+                    }}
+                >
+                    RUN TEST
+                </button>
+                gogo?
+            </TestButtonsContainer>
+            {/* Events logger */}
+
             <div ref={pixiCanvasRef}></div>
         </BoardContainer>
     );
@@ -246,7 +374,13 @@ function Button(props = {}) {
     );
 }
 
+const TestButtonsContainer = styled.div`
+    position: absolute;
+    top: 0;
+`;
+
 const BoardContainer = styled.div`
+    position: relative;
     width: 100%;
     margin-bottom: 15em;
     border: solid 2px white;

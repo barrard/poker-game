@@ -12,7 +12,7 @@ import {
 } from "../components";
 
 export default function GameList(props) {
-    console.log(props);
+    // console.log(props);
     const { gameList, history, match } = props;
     const { user, mySocket, setGameList } = useContext(MainContext);
 

@@ -6,6 +6,9 @@ import {
     JoinGameBtn,
     Alert,
     XGameBtn,
+    EventsLog,
+    BoardContainer,
+    Event,
 } from "./StyledComponents";
 export {
     CountDown,
@@ -15,6 +18,9 @@ export {
     Alert,
     Avatar,
     XGameBtn,
+    EventsLog,
+    BoardContainer,
+    Event,
 };
 
 //https://codepen.io/vii120/pen/KKapaaY
