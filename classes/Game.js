@@ -105,28 +105,41 @@ module.exports = class Game {
             socket.join(game.id);
 
             this.emitGameStateUpdate();
-            this.emitToRoom("addPlayer", this.players[user.id]);
+        }
+    }
 
-            let playerCount = Object.keys(this.players).length;
+    playerHasJoined(user) {
+        //make sure we know who this person is?
+        const gotPlayer = this.players[user.id];
+        if (!gotPlayer) return console.error("Hacker try join game");
 
-            if (playerCount == 2) {
-                //this is the second person to join and the game can now start.
-                //this person will be small blind
-                await this.waitFor(1000);
+        let playerCount = Object.keys(this.players).length;
 
-                //and game may now start
-                this.startGame();
-            }
+        this.emitToRoom("addPlayer", this.players[user.id]);
+
+        if (playerCount == 2) {
+            //this is the second person to join and the game can now start.
+            //this person will be small blind
+            // await this.waitFor(3000);
+
+            //and game may now start
+            this.startGame();
         }
     }
 
     settleBets() {
-        if (this.dealer === 0) {
-            this.dealer++;
-        } else this.dealer = 0;
+        if (this.dealer !== undefined) {
+            let playerPosition = this.findFirstAvailablePosition({
+                startingPos: this.dealer + 1,
+                isEmpty: false,
+            });
+            this.dealer = playerPosition;
+        } else this.dealer = undefined;
         //current bet size
         this.bet.biggestBet = 0;
         this.currentRoundState = 0;
+        this.smallBlind = undefined;
+        this.bigBlind = undefined;
 
         //each players currentBet
         this.resetEachPlayer("bet", 0);
@@ -156,6 +169,7 @@ module.exports = class Game {
         this.pokerGame = new PokerGame({ playerPositions });
         this.dealHands();
     }
+
     async dealHands() {
         if (this.state < 1) {
             this.emitGameStateUpdate();
@@ -166,7 +180,7 @@ module.exports = class Game {
         //start dealing
         this.settleBets();
         //determine big and small blind
-        this.determineDealerBigSmall();
+        await this.determineDealerBigSmall();
         //ensure we got'em all
         const { dealer, bigBlind, smallBlind } = this;
         if (
@@ -267,20 +281,29 @@ module.exports = class Game {
         });
     }
 
-    determineDealerBigSmall() {
+    async determineDealerBigSmall() {
         const { dealer, bigBlind, smallBlind } = this;
 
         //do we have a player at these positions?
         //make sure we have an active dealer
         if (dealer == undefined || !this.positions[dealer]) {
             this.dealer = this.findFirstAvailablePosition({ isEmpty: false });
+            this.emitToRoom("setDealerChip", { position: this.dealer });
+        } else {
+            this.emitToRoom("setDealerChip", { position: this.dealer });
         }
+        await this.waitFor(1000);
         if (smallBlind == undefined || !this.positions[smallBlind]) {
-            this.handleSmallBlind();
+            const smallBlind = this.handleSmallBlind();
+            this.emitToRoom("setSmallBlindChip", { position: smallBlind });
         }
+        await this.waitFor(1000);
+
         if (bigBlind == undefined || !this.positions[bigBlind]) {
-            this.handleBigBlind();
+            const bigBlind = this.handleBigBlind();
+            this.emitToRoom("setBigBlindChip", { position: bigBlind });
         }
+        await this.waitFor(1000);
     }
 
     handleBigBlind() {
@@ -289,6 +312,7 @@ module.exports = class Game {
             isEmpty: false,
         });
         this.updateBetAndPot(this.bigBlind, this.bet.bigBlind);
+        return this.bigBlind;
     }
 
     handleSmallBlind() {
@@ -297,6 +321,7 @@ module.exports = class Game {
             isEmpty: false,
         });
         this.updateBetAndPot(this.smallBlind, this.bet.smallBlind);
+        return this.smallBlind;
     }
 
     updateBetAndPot(position, betSize) {
@@ -373,6 +398,8 @@ module.exports = class Game {
                 position: possibleNextBetter,
                 lastPosition: lastPositionBet,
             });
+            await this.waitFor(3000);
+            this.startGame();
             return;
         }
 
@@ -401,7 +428,7 @@ module.exports = class Game {
             if (nextRoundState > totalRounds - 1) {
                 //SHOWDOWN TIME!!!
                 const winner = this.pokerGame.determineWinner();
-                this.emitToRoom("winningHand", {
+                this.emitToRoom("playerWins", {
                     winner,
                 });
                 await this.waitFor(3000);
@@ -448,6 +475,8 @@ module.exports = class Game {
         const player = this.positions[this.bettersTurn];
         if (!player) {
             console.log("This guy left");
+            // this.removePlayer(user, socket);
+            return;
         }
         const playerCurrentBet = player.bet;
         const biggestBet = this.bet.biggestBet;

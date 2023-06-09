@@ -49,6 +49,10 @@ module.exports = (io) => {
             joinGame(socket, gameId);
         });
 
+        socket.on("hasJoined", () => {
+            hasJoinedGame(socket);
+        });
+
         socket.on("leaveGame", (gameId) => {
             //user wants to join this game
             leaveGame(socket, gameId);
@@ -133,19 +137,67 @@ module.exports = (io) => {
                 }
             }
         });
+
+        // ~~~~~~~~    TESTS!!!  ~~~~~~~~
+
+        socket.on("testMyTurn", () => {
+            //user wants to join this game
+            // leaveGame(socket, gameId);
+            const roomId = getRoomId(socket);
+            const game = gamesManager.getGame(roomId);
+            if (!game) return;
+            game.bettersTurn = 0;
+            game.emitToRoom("playersBettingTurn", {
+                toCall: 10,
+                positionsTurn: game.bettersTurn,
+            });
+        });
+
+        socket.on("endMyTurn", () => {
+            //user wants to join this game
+            // leaveGame(socket, gameId);
+            const roomId = getRoomId(socket);
+            const game = gamesManager.getGame(roomId);
+            if (!game) return;
+
+            game.emitToRoom("playerTurnEnd", {
+                position: 0,
+            });
+        });
+
+        socket.on("TESTsetDealerChip", () => {
+            const roomId = getRoomId(socket);
+            const game = gamesManager.getGame(roomId);
+            if (!game) return;
+            game.emitToRoom("setDealerChip", { position: 0 });
+        });
+
+        socket.on("TESTsetBingBlind", () => {
+            const roomId = getRoomId(socket);
+            const game = gamesManager.getGame(roomId);
+            if (!game) return;
+            game.emitToRoom("setBigBlindChip", { position: 0 });
+        });
+
+        socket.on("TESTsetSmallBlind", () => {
+            const roomId = getRoomId(socket);
+            const game = gamesManager.getGame(roomId);
+            if (!game) return;
+            game.emitToRoom("setSmallBlindChip", { position: 0 });
+        });
     });
 };
 
 function handleDisconnect(socket) {
     let user = socketUserMap[socket.id];
-    let roomId = socketRoomMap[socket.id];
+    // let roomId = socketRoomMap[socket.id];
+    const roomId = getRoomId(socket);
 
     if (user === null) {
         console.log("user is nulllllll");
     } else {
         console.log(`user ${user?.name} disconnected`);
     }
-    // const roomId = getRoomId(socket);
     if (roomId === null) {
         return console.log("Room is nulllllll");
     }
@@ -244,6 +296,17 @@ function createNewGame(socketIo) {
     return game;
 }
 
+function hasJoinedGame(socket) {
+    let user = socketUserMap[socket.id];
+    let roomId = socketRoomMap[socket.id];
+    let game = gamesManager.getGame(roomId);
+    if (!game || roomId === "waiting room") {
+        console.log("no game");
+        //TODO move player to waiting room and emit game list state
+        return;
+    }
+    game.playerHasJoined(user);
+}
 function leaveGame(socket, gameId) {
     let user = socketUserMap[socket.id];
     //make sure player limit is not reached

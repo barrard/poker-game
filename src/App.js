@@ -41,14 +41,7 @@ function App(props) {
     const [currentHand, setCurrentHand] = useState([]);
     const [errMsg, setErrMsg] = useState({});
     const [socketConnected, setSocketConnected] = useState(null);
-    const [eventLogs, setEventLogs] = useState([
-        { msg: "Some nice messages for yoouuuu,,,,", color: "blue" },
-        { msg: "Some nice messages for yoouuuu,,,,", color: "green" },
-        { msg: "Some nice messages for yoouuuu,,,,", color: "red" },
-        { msg: "Some nice messages for yoouuuu,,,,", color: "blue" },
-        { msg: "Some nice messages for yoouuuu,,,,", color: "green" },
-        { msg: "Some nice messages for yoouuuu,,,,", color: "red" },
-    ]);
+    const [eventLogs, setEventLogs] = useState([]);
 
     useEffect(() => {
         const socket = socketIOClient(ENDPOINT, {

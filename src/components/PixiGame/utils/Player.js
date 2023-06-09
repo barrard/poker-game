@@ -25,7 +25,7 @@ export default class Player {
         const container = new Container();
         container.position.set(x, y);
         this.container = container;
-        opts.pixiGame.mainChartContainer.addChild(container);
+        opts.pixiGame.playerContainer.addChild(container);
 
         const errorGfx = new Graphics();
         this.errorGfx = errorGfx;
@@ -63,7 +63,7 @@ export default class Player {
         this.container.addChild(sprite.sprite);
     }
 
-    playerSelect() {
+    startBetTimer() {
         this.playerSelectGfx.clear();
         this.playerTimerGfx.clear();
 
@@ -112,7 +112,6 @@ export default class Player {
             duration: this.playerBetTime,
             onUpdate: () => {
                 if (!this.playerSelectGfx?._geometry) {
-                    debugger;
                     this.killBetTimerAnimation();
                     return;
                 }
@@ -137,28 +136,29 @@ export default class Player {
 
     check() {
         //TODO: draw a big check mark or whatever shows this action
-        this.drawError(0x00ffaa); //sorta greenish blue
+        this.playerSelect(0x00ffaa); //sorta greenish blue
     }
 
     fold() {
-        this.drawError(0xff0099); //sorta reddish blue
+        this.playerSelect(0xff0099); //sorta reddish blue
     }
+
     endTurn() {
         this.killBetTimerAnimation();
-        if (!this.playerSelectGfx?._geometry) {
+        if (this.playerSelectGfx?._geometry) {
             this.playerSelectGfx.clear();
         }
-        if (!this.playerTimerGfx?._geometry) {
+        if (this.playerTimerGfx?._geometry) {
             this.playerTimerGfx.clear();
         }
     }
+
     win() {
-        this.drawError(0x00ff55); //sorta greenish blue
+        this.playerSelect(0x00ff55); //sorta greenish blue
     }
 
-    drawError(color) {
+    playerSelect(color) {
         this.errorGfx.clear();
-
         this.errorGfx.lineStyle(5, color, 0.5);
         // Draw an arc
         const x = 0; // X-coordinate of the center point
@@ -167,14 +167,12 @@ export default class Player {
         const startAngle = 0; // Starting angle in radians
         const endAngle = Math.PI * 2; // Ending angle in radians
         const anticlockwise = false; // Clockwise (false) or anticlockwise (true)
-
         this.errorGfx.arc(x, y, radius, startAngle, endAngle, anticlockwise);
-
         // End the shape
         this.errorGfx.endFill();
         setTimeout(() => {
             this.errorGfx.clear();
-        }, 1000);
+        }, 2000);
     }
 
     setBalance(balance) {

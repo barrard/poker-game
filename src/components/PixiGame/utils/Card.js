@@ -29,7 +29,7 @@ export default class Card {
             delayIndex,
             cardValue,
         } = opts;
-        debugger;
+
         this.isBoardPosition = isBoardPosition;
         const scale = isYou || isBoardPosition !== undefined ? 0.5 : 0.25;
         const { x, y } = location;
@@ -77,30 +77,13 @@ export default class Card {
             this.dealerLocation.x,
             this.dealerLocation.y
         );
-        // this.container.pivot.set(new Point(this.width / 2, this.height / 2));
-        // this.container.pivot.set((this.width / 2, this.height / 2));
         this.container.scale.x = 0;
         this.container.scale.y = 0;
 
         this.pixiGame.mainChartContainer.addChild(container);
 
-        // const errorGfx = new Graphics();
-        // this.errorGfx = errorGfx;
-        // container.addChild(errorGfx);
-
-        // const playerSelect = new Graphics();
-        // this.playerSelect = playerSelect;
-        // container.addChild(playerSelect);
-
         console.log("drawCard");
         this.draw();
-        // this.setFace();
-    }
-
-    setFace(cardFile = "6_of_clubs") {
-        // this.cardFaceSprite = Sprite.from(`/img/cards/${cardFile}.png`);
-        // this.cardFaceSprite.width = this.width;
-        // this.cardFaceSprite.height = this.height;
     }
 
     draw() {
@@ -160,7 +143,7 @@ export default class Card {
                                 : this.isCard1
                                 ? this.pixiGame.playerCards[0]
                                 : this.pixiGame.playerCards[1];
-                        debugger;
+
                         const textureUrl = `/img/cards/${cardFile}.png`;
                         const texture = await Assets.load(textureUrl);
 

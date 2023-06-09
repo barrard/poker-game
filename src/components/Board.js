@@ -42,7 +42,6 @@ export function Board() {
     useEffect(() => {
         if (!pixiCanvasRef.current) return;
         console.log("--- mont the board?");
-
         pixieAppRef.current = new PIXI.Application({
             // height: tableHeight,
             // width: tableWidth,
@@ -61,7 +60,7 @@ export function Board() {
         pixiCanvasRef.current.appendChild(pixieAppRef.current.view);
 
         const pixiGame = new PixiGame({
-            setEventLogs: setEventLogs,
+            handleEventsLog,
             pixiApp: pixieAppRef.current,
             height: tableHeight,
             width: tableWidth,
@@ -82,22 +81,17 @@ export function Board() {
         setPixiGame(pixiGame);
 
         mySocket.on("cardsDealt", (playerPositions) => {
-            console.log("cardsDealt");
             pixiGame.dealCards(playerPositions);
         });
         mySocket.on("addPlayer", (player) => {
-            console.log("addPlayer");
             pixiGame.addPlayer(player);
         });
 
         mySocket.on("removePlayer", (player) => {
-            console.log("removePlayer");
             pixiGame.removePlayer(player);
         });
 
         mySocket.on("yourHand", (hand) => {
-            console.log("yourHand");
-            console.log(hand);
             const [card1, card2] = [
                 convertCardToFile(hand[0]),
                 convertCardToFile(hand[1]),
@@ -106,121 +100,93 @@ export function Board() {
         });
 
         mySocket.on("playersBettingTurn", ({ positionsTurn, toCall }) => {
-            console.log(positionsTurn);
             pixiGame.playersBettingTurn({ positionsTurn, toCall });
         });
 
         mySocket.on("chipBalance", ({ position, chips }) => {
-            console.log({
-                position,
-                chips,
-            });
             pixiGame.chipBalance({ position, chips });
         });
 
         mySocket.on("playerCheck", ({ position }) => {
-            // alert(`Player ${position} checks`);
-            setEventLogs((logs) => {
-                return [
-                    ...logs,
-                    {
-                        color: "white",
-                        msg: `Player ${position} checks`,
-                    },
-                ];
+            handleEventsLog({
+                color: "white",
+                msg: `Player ${position} checks`,
             });
             pixiGame.playerCheck({ position });
         });
 
         mySocket.on("playerFold", ({ position }) => {
-            // alert(`Player ${position} folds`);
-            setEventLogs((logs) => {
-                return [
-                    ...logs,
-                    {
-                        color: "tomato",
-                        msg: `Player ${position} folds`,
-                    },
-                ];
+            handleEventsLog({
+                color: "tomato",
+                msg: `Player ${position} folds`,
             });
             pixiGame.playerFold({ position });
         });
 
         mySocket.on("playerTurnEnd", ({ position }) => {
-            // console.log(`Player ${position} end turn`);
-            setEventLogs((logs) => {
-                return [
-                    ...logs,
-                    {
-                        color: "red",
-                        msg: `Player ${position} end turn`,
-                    },
-                ];
+            handleEventsLog({
+                color: "red",
+                msg: `Player ${position} end turn`,
             });
             pixiGame.playerTurnEnd({ position });
         });
 
         mySocket.on("playerWins", ({ position }) => {
-            // alert(`Player ${position} Wins`);
-            setEventLogs((logs) => {
-                return [
-                    ...logs,
-                    {
-                        color: "green",
-                        msg: `Player ${position} Wins`,
-                    },
-                ];
+            handleEventsLog({
+                color: "green",
+                msg: `Player ${position} Wins`,
             });
             pixiGame.playerWins({ position });
         });
 
         mySocket.on("theFlop", ({ flop }) => {
-            debugger;
-            // alert("FLOP");
-            setEventLogs((logs) => {
-                return [
-                    ...logs,
-                    {
-                        color: "yellow",
-                        msg: `Flop ${flop}`,
-                    },
-                ];
+            handleEventsLog({
+                color: "yellow",
+                msg: `Flop ${flop}`,
             });
             flop = flop.map((card) => convertCardToFile(card));
             pixiGame.dealFlop(flop);
         });
 
         mySocket.on("theTurn", ({ turn }) => {
-            debugger;
-            // alert("TURN");
-            setEventLogs((logs) => {
-                return [
-                    ...logs,
-                    {
-                        color: "yellow",
-                        msg: `Turn ${turn}`,
-                    },
-                ];
+            handleEventsLog({
+                color: "yellow",
+                msg: `Turn ${turn}`,
             });
             turn = convertCardToFile(turn);
             pixiGame.dealTurn(turn);
         });
 
         mySocket.on("theRiver", ({ river }) => {
-            debugger;
-            // alert("River");
-            setEventLogs((logs) => {
-                return [
-                    ...logs,
-                    {
-                        color: "yellow",
-                        msg: `River ${river}`,
-                    },
-                ];
-            });
+            handleEventsLog({ color: "yellow", msg: `River ${river}` });
             river = convertCardToFile(river);
             pixiGame.dealRiver(river);
         });
+
+        mySocket.on("setDealerChip", ({ position }) => {
+            handleEventsLog({
+                color: "purple",
+                msg: `Player ${position} is Dealer`,
+            });
+            pixiGame.setDealerChip({ position });
+        });
+
+        mySocket.on("setBigBlindChip", ({ position }) => {
+            handleEventsLog({
+                color: "#bf9000",
+                msg: `Player ${position} is Big Blind`,
+            });
+            pixiGame.setBigBlindChip({ position });
+        });
+
+        mySocket.on("setSmallBlindChip", ({ position }) => {
+            handleEventsLog({
+                color: "#0b5394",
+                msg: `Player ${position} is Small Blind`,
+            });
+            pixiGame.setSmallBlindChip({ position });
+        });
+
         return () => {
             console.log("un mont the board?");
             mySocket.off("cardsDealt");
@@ -229,13 +195,16 @@ export function Board() {
             mySocket.off("yourHand");
             mySocket.off("playersBettingTurn");
             mySocket.off("chipBalance");
-            mySocket.off("playerFold");
             mySocket.off("playerCheck");
+            mySocket.off("playerFold");
             mySocket.off("playerTurnEnd");
             mySocket.off("playerWins");
             mySocket.off("theFlop");
             mySocket.off("theTurn");
             mySocket.off("theRiver");
+            mySocket.off("setDealerChip");
+            mySocket.off("setBigBlindChip");
+            mySocket.off("setSmallBlindChip");
             pixieAppRef.current.destroy(true, true);
             pixieAppRef.current = null;
             pixiGame.destroy();
@@ -256,12 +225,73 @@ export function Board() {
         pixiGame.dealFlop(["5S", "3H", "KD"]);
     }
 
+    function myTurn() {
+        console.log("myTurn");
+        mySocket.emit("testMyTurn");
+    }
+    function endTurn() {
+        console.log("end turn");
+        mySocket.emit("endMyTurn");
+    }
+
+    function setDealer() {
+        mySocket.emit("TESTsetDealerChip");
+    }
+
+    function setBB() {
+        mySocket.emit("TESTsetBingBlind");
+    }
+    function setSB() {
+        mySocket.emit("TESTsetSmallBlind");
+    }
+
+    function handleEventsLog(event) {
+        setEventLogs((logs) => {
+            return [...logs, event];
+        });
+    }
+
     if (!gameState.players || !Object.keys(gameState.players)?.length)
         return <>Waiting for players</>;
 
     return (
         <BoardContainer>
             <TestButtonsContainer>
+                <button
+                    onClick={() => {
+                        setBB();
+                    }}
+                >
+                    Set BB
+                </button>
+                <button
+                    onClick={() => {
+                        setSB();
+                    }}
+                >
+                    Set sb
+                </button>{" "}
+                <button
+                    onClick={() => {
+                        setDealer();
+                    }}
+                >
+                    Set Dealer
+                </button>
+                <button
+                    onClick={() => {
+                        myTurn();
+                    }}
+                >
+                    My Turn
+                </button>
+                <button
+                    onClick={() => {
+                        endTurn();
+                    }}
+                >
+                    end Turn
+                </button>
                 <button
                     onClick={() => {
                         bet5();
@@ -385,26 +415,6 @@ const BoardContainer = styled.div`
     margin-bottom: 15em;
     border: solid 2px white;
 `;
-
-/*
-
-		<Reward
-					ref={(ref) => {
-						this.reward = ref;
-					}}
-					type="confetti"
-					config={{
-						lifetime: 10,
-						// angle: 90,
-						elementCount: 100,
-						decay: 1,
-						spread: 360,
-						startVelocity: 10,
-						// springAnimation: false,
-						colors: ["Red", "yellow", "green", "blue"],
-					}}
-				></Reward>
-				*/
 
 function convertCardToFile(card) {
     let [rank, suit] = card.split("");

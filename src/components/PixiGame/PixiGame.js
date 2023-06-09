@@ -18,17 +18,17 @@ import Card from "./utils/Card";
 
 export default class PixiGame {
     constructor({
-        pixiApp,
-        height,
-        width,
         gameState,
-        user,
-        gsap,
         globalScale,
+        gsap,
+        height,
         mySocket,
-        setEventLogs,
+        pixiApp,
+        handleEventsLog,
+        user,
+        width,
     }) {
-        this.setEventLogs = setEventLogs;
+        this.handleEventsLog = handleEventsLog;
         this.mySocket = mySocket;
         this.gsap = gsap;
         this.user = user;
@@ -46,6 +46,8 @@ export default class PixiGame {
         this.maxPlayers = 8;
 
         this.mainChartContainer = new Container();
+        this.overlayContainer = new Container();
+        this.playerContainer = new Container();
         // this.mainChartContainer.scale.x = 0.25;
         // this.mainChartContainer.scale.y = 0.25;
         this.yourHandSprites = { card1: null, card2: null };
@@ -62,7 +64,11 @@ export default class PixiGame {
         await this.makeGameBoard();
         this.drawDealer();
         this.drawPlayers();
+        this.drawDealerBlindMarkers();
+        this.mainChartContainer.addChild(this.playerContainer);
+        this.mainChartContainer.addChild(this.overlayContainer);
         this.pixiApp.stage.addChild(this.mainChartContainer);
+        this.mySocket.emit("hasJoined");
     }
 
     // loadAllAssets() {
@@ -178,6 +184,39 @@ export default class PixiGame {
         }
         player.killBetTimerAnimation();
         delete this.playerSprites[mappedPosition];
+    }
+
+    drawDealerBlindMarkers() {
+        this.marker = {};
+
+        this.addDealMarker("dealer", "dealer", "D", 0xffffff, "black");
+        this.addDealMarker("smallBlind", "dealer", "sb", 0x0b5394, "white");
+        this.addDealMarker("bigBlind", "dealer", "BB", 0xbf9000, "black");
+    }
+
+    addDealMarker(name, loc, letter, color, textColor) {
+        const dealerLoc = this.positionLocations[loc];
+        //drawDealerChip
+
+        this.marker[name] = new Container();
+        this.marker[name].position.x = dealerLoc.x;
+        this.marker[name].position.y = dealerLoc.y;
+        const dealerGfx = new Graphics();
+        const textStyle = new TextStyle({
+            fontFamily: "Arial",
+            fill: textColor,
+            fontSize: this.width * 0.012,
+            fontWeight: "bold",
+            align: "center",
+        });
+        const D = new Text(letter, textStyle);
+        D.anchor.set(0.5);
+        dealerGfx.beginFill(color);
+        dealerGfx.drawCircle(0, 0, this.width * 0.01);
+        dealerGfx.endFill();
+        this.marker[name].addChild(dealerGfx);
+        this.marker[name].addChild(D);
+        this.overlayContainer.addChild(this.marker[name]);
     }
 
     drawPlayers() {
@@ -346,30 +385,63 @@ export default class PixiGame {
             this.yourHandSprites[isCard1 ? "card1" : "card2"] = card;
         }
     }
+
+    setDealerChip({ position }) {
+        this.setMarkerChipPosition({ position, chip: "dealer" });
+    }
+
+    setBigBlindChip({ position }) {
+        this.setMarkerChipPosition({ position, chip: "bigBlind" });
+    }
+
+    setSmallBlindChip({ position }) {
+        this.setMarkerChipPosition({ position, chip: "smallBlind" });
+    }
+
+    setMarkerChipPosition({ position, chip }) {
+        const location = this.getPlayerLoc(position);
+        //animate market to positin with gsap
+        const container = this.marker[chip];
+        if (!location) {
+            debugger;
+        }
+        this.gsap.to(container, {
+            pixi: {
+                x:
+                    chip === "dealer"
+                        ? location.x - this.width * 0.012 * 2
+                        : location.x,
+                y: chip === "dealer" ? location.y : location.y,
+            },
+            duration: 1,
+            ease: "power1.out",
+        });
+    }
+
     chipBalance({ position, chips }) {
-        const player = this.getPlayer(position);
+        const player = this.getPlayerSprite(position);
         player.setBalance(chips);
     }
 
     playerCheck({ position }) {
-        const player = this.getPlayer(position);
+        const player = this.getPlayerSprite(position);
         player.check();
     }
 
     playerFold({ position }) {
-        const player = this.getPlayer(position);
+        const player = this.getPlayerSprite(position);
         player.fold();
     }
 
     playerTurnEnd({ position }) {
         //clear the timer and select
 
-        const player = this.getPlayer(position);
+        const player = this.getPlayerSprite(position);
         player.endTurn();
     }
 
     playerWins({ position }) {
-        const player = this.getPlayer(position);
+        const player = this.getPlayerSprite(position);
         player.win();
         // this.awardWinner();//TODO doesn't exist
     }
@@ -384,36 +456,24 @@ export default class PixiGame {
     }
 
     betCheckFold(position, data) {
-        // console.log({ position, data });
-        // const mappedPosition = this.seatPositionMap[position];
-        debugger;
         const player = this.playerSprites[this.YOUR_POSITION];
 
         player.betCheckFold(data);
     }
 
     playersBettingTurn({ positionsTurn, toCall }) {
-        console.log({ positionsTurn });
-        const mappedPosition = this.seatPositionMap[positionsTurn];
-        const playerSprite = this.playerSprites[mappedPosition];
-        playerSprite.playerSelect();
+        const playerSprite = this.getPlayerSprite(positionsTurn);
+        playerSprite.startBetTimer();
         //add to messages
-        if (mappedPosition === this.YOUR_POSITION) {
-            this.setEventLogs((logs) => {
-                return [
-                    ...logs,
-                    { color: "blue", msg: `You turn to call ${toCall}` },
-                ];
+        if (positionsTurn === this.YOU.position) {
+            this.handleEventsLog({
+                color: "blue",
+                msg: `You turn to call ${toCall}`,
             });
         } else {
-            this.setEventLogs((logs) => {
-                return [
-                    ...logs,
-                    {
-                        color: "blue",
-                        msg: `Player ${mappedPosition} turn to call ${toCall}`,
-                    },
-                ];
+            this.handleEventsLog({
+                color: "blue",
+                msg: `Player ${positionsTurn} turn to call ${toCall}`,
             });
         }
     }
@@ -438,10 +498,16 @@ export default class PixiGame {
         }
     }
 
-    getPlayer(position) {
+    getPlayerSprite(position) {
         const mappedPosition = this.seatPositionMap[position];
-        const player = this.playerSprites[mappedPosition];
-        return player;
+        const playerSprite = this.playerSprites[mappedPosition];
+        return playerSprite;
+    }
+
+    getPlayerLoc(position) {
+        const mappedPosition = this.seatPositionMap[position];
+        const location = this.positionLocations[mappedPosition];
+        return location;
     }
 
     destroy() {
