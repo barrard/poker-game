@@ -15,81 +15,7 @@ module.exports = class PokerGame {
 
         this.board = [];
         this.winner = { score: Infinity, sameScore: [] };
-
-        // this.dealPlayers();
-
-        // this.dealFlop();
-        // this.dealRiver();
-        // this.dealTurn();
-        // this.determineBestHand();
     }
-
-    // determineBestHand() {
-    //     Object.keys(this.players).forEach((player) => {
-    //         const playerHand = [
-    //             ...this.players[player].hand,
-    //             ...this.flop,
-    //             this.turn,
-    //             this.river,
-    //         ];
-
-    //         //   console.log(`${player} - hand`);
-    //         //   console.log(playerHand);
-    //         this.players[player].bestHand = this.getBestHand(playerHand);
-    //         if (this.players[player].bestHand.rank === "ROYAL_FLUSH") {
-    //             console.log("GOT PNE");
-    //         }
-    //         //   console.log(`${player} - hand`);
-    //         //   console.log(this.players[player].bestHand);
-    //         //   console.log(this.players[player].bestHand.score);
-    //         if (this.players[player].bestHand.score < this.winner.score) {
-    //             this.winner = {
-    //                 player,
-    //                 ...this.players[player],
-    //                 score: this.players[player].bestHand.score,
-    //             };
-    //         }
-    //     });
-    //     // console.log("This Winner is");
-    //     // console.log(this.winner);
-    //     const card1 = this.scoreCard(this.winner.hand[0]);
-    //     const card2 = this.scoreCard(this.winner.hand[1]);
-    //     let cardKey = "";
-    //     if (card1.score > card2.score) {
-    //         cardKey = `${card1.card},${card2.card}`;
-    //     } else {
-    //         cardKey = `${card2.card},${card1.card}`;
-    //     }
-    //     if (!this.winningHands[cardKey]) {
-    //         this.winningHands[cardKey] = 0;
-    //     }
-    //     this.winningHands[cardKey]++;
-    // }
-    // scoreCard(card) {
-    //     const [type, suit] = card.split("");
-    //     const suits = ["H", "D", "C", "S"];
-
-    //     const ranks = [
-    //         "A",
-    //         "2",
-    //         "3",
-    //         "4",
-    //         "5",
-    //         "6",
-    //         "7",
-    //         "8",
-    //         "9",
-    //         "T",
-    //         "J",
-    //         "Q",
-    //         "K",
-    //     ];
-    //     const suitIndex = suits.indexOf(suit) + 1;
-    //     const rankIndex = ranks.indexOf(type) + 1;
-    //     // console.log({ suitIndex, rankIndex });
-    //     const score = rankIndex * (suitIndex * ranks.length);
-    //     return { suitIndex, rankIndex, score, card };
-    // }
 
     dealBoard(position) {
         this.board.push(this.deck.drawCard());
@@ -99,22 +25,14 @@ module.exports = class PokerGame {
         this.flop.push(this.deck.drawCard());
         this.flop.push(this.deck.drawCard());
         this.flop.push(this.deck.drawCard());
-        // console.log("this.flop");
-        // console.log(this.flop);
     }
 
     dealRiver() {
         this.river = this.deck.drawCard();
-
-        // console.log("this.river");
-        // console.log(this.river);
     }
 
     dealTurn() {
         this.turn = this.deck.drawCard();
-
-        // console.log("this.turn");
-        // console.log(this.turn);
     }
 
     dealBoard(position) {

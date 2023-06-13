@@ -30,8 +30,9 @@ export default class Card {
             cardValue,
         } = opts;
 
+        this.isLargeCard = isYou || isBoardPosition !== undefined;
         this.isBoardPosition = isBoardPosition;
-        const scale = isYou || isBoardPosition !== undefined ? 0.5 : 0.25;
+        const scale = this.isLargeCard ? 0.5 : 0.25;
         const { x, y } = location;
         this.x = this.isBoardPosition !== undefined ? x : x + 222 * scale;
         this.y = y; ///+ 323; //* scale;
@@ -66,7 +67,7 @@ export default class Card {
 
         cardSprite.anchor.set(0.5);
 
-        this.cardSprite = cardSprite;
+        this.cardBackSprite = cardSprite;
         this.width = this.cardWidth * this.pixiGame.globalScale * this.scale;
         this.height = this.cardHeight * this.pixiGame.globalScale * this.scale;
         cardSprite.width = this.width;
@@ -89,7 +90,7 @@ export default class Card {
     draw() {
         const padding = this.width * 0.05;
         this.padding = padding;
-        console.log({ width: this.width, height: this.height });
+
         this.cardGfx.clear();
         this.cardGfx.beginFill(0xffffff, 1);
         this.cardGfx.drawRoundedRect(
@@ -107,7 +108,7 @@ export default class Card {
                 ? this.x - this.width * 0.35
                 : this.x + this.width * 0.15;
         const y = this.y;
-        console.log({ x, y });
+
         this.pixiGame.gsap.to(this.container, {
             pixi: {
                 x: x,
@@ -124,53 +125,103 @@ export default class Card {
             duration: 1,
             delay: this.delayIndex * 0.1,
             ease: "power1.out",
-            onComplete: this.flipCard.bind(this),
+            onComplete: this.isLargeCard ? this.flipCard.bind(this) : () => {},
+        });
+    }
+
+    turnFaceDown() {
+        const timeline = this.pixiGame.gsap.timeline({
+            onUpdate: async (v) => {
+                console.log(this.container.skew["_y"]);
+                if (this.cardFaceDown) return;
+                if (
+                    this.container.skew["_y"] <= Math.PI / 2 &&
+                    !this.cardFaceDown
+                ) {
+                    console.log("remove face");
+
+                    this.cardFaceDown = true;
+
+                    // const cardFile =
+                    //     this.isBoardPosition !== undefined
+                    //         ? this.cardValue
+                    //         : this.isCard1
+                    //         ? this.pixiGame.playerCards[0]
+                    //         : this.pixiGame.playerCards[1];
+
+                    // const textureUrl = `/img/cards/${cardFile}.png`;
+                    // const texture = await Assets.load(textureUrl);
+
+                    // this.cardFaceSprite = Sprite.from(texture);
+                    // this.cardFaceSprite.anchor.set(0.5);
+
+                    // this.cardFaceSprite.width = this.width;
+                    // this.cardFaceSprite.height = this.height;
+                    this.container.addChild(this.cardBackSprite);
+                    this.container.removeChild(this.cardFaceSprite);
+
+                    // this.cardFaceSprite.position.set(this.width, 0);
+
+                    // this.cardFaceSprite.skew.y = -Math.PI;
+                }
+            },
+        });
+
+        const width = this.cardWidth * this.pixiGame.globalScale * 0.25;
+        const height = this.cardHeight * this.pixiGame.globalScale * 0.25;
+        timeline.to(this.container, {
+            duration: 1,
+
+            pixi: {
+                width,
+                height,
+                skewY: 0,
+            },
         });
     }
 
     flipCard() {
-        if (this.isYOU || this.isBoardPosition !== undefined) {
-            const timeline = this.pixiGame.gsap.timeline({
-                onUpdate: async (v) => {
-                    if (this.cardFaceDrawn) return;
-                    if (
-                        this.container.skew["_y"] >= Math.PI / 2 &&
-                        !this.cardFaceDrawn
-                    ) {
-                        const cardFile =
-                            this.isBoardPosition !== undefined
-                                ? this.cardValue
-                                : this.isCard1
-                                ? this.pixiGame.playerCards[0]
-                                : this.pixiGame.playerCards[1];
+        const timeline = this.pixiGame.gsap.timeline({
+            onUpdate: async (v) => {
+                if (this.cardFaceDrawn) return;
+                if (
+                    this.container.skew["_y"] >= Math.PI / 2 &&
+                    !this.cardFaceDrawn
+                ) {
+                    this.cardFaceDrawn = true;
 
-                        const textureUrl = `/img/cards/${cardFile}.png`;
-                        const texture = await Assets.load(textureUrl);
+                    const cardFile =
+                        this.isBoardPosition !== undefined
+                            ? this.cardValue
+                            : this.isCard1
+                            ? this.pixiGame.playerCards[0]
+                            : this.pixiGame.playerCards[1];
 
-                        this.cardFaceSprite = Sprite.from(texture);
-                        this.cardFaceSprite.anchor.set(0.5);
+                    const textureUrl = `/img/cards/${cardFile}.png`;
+                    const texture = await Assets.load(textureUrl);
 
-                        this.cardFaceSprite.width = this.width;
-                        this.cardFaceSprite.height = this.height;
-                        this.cardFaceDrawn = true;
-                        this.container.removeChild(this.cardSprite);
-                        this.container.addChild(this.cardFaceSprite);
+                    this.cardFaceSprite = Sprite.from(texture);
+                    this.cardFaceSprite.anchor.set(0.5);
 
-                        // this.cardFaceSprite.position.set(this.width, 0);
+                    this.cardFaceSprite.width = this.width;
+                    this.cardFaceSprite.height = this.height;
+                    this.container.removeChild(this.cardBackSprite);
+                    this.container.addChild(this.cardFaceSprite);
 
-                        this.cardFaceSprite.skew.y = -Math.PI;
-                    }
-                },
-            });
+                    // this.cardFaceSprite.position.set(this.width, 0);
 
-            timeline.to(this.container, {
-                duration: 1,
+                    this.cardFaceSprite.skew.y = -Math.PI;
+                }
+            },
+        });
 
-                pixi: {
-                    skewY: 180,
-                },
-            });
-        }
+        timeline.to(this.container, {
+            duration: 1,
+
+            pixi: {
+                skewY: 180,
+            },
+        });
     }
 
     playerError() {

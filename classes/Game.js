@@ -1,5 +1,6 @@
 const { v4: uuidv4 } = require("uuid");
 const PokerGame = require("./PokerGame");
+const { waitFor } = require("../service/serverUtils");
 module.exports = class Game {
     constructor({ socketIo, waitingRoom }) {
         this.id = uuidv4();
@@ -7,6 +8,7 @@ module.exports = class Game {
         this.waitingRoom = waitingRoom;
         this.bet = { bigBlind: 10, smallBlind: 5, biggestBet: 0 };
         this.pot = 0;
+        this.waitFor = waitFor;
 
         this.allowedBetTime = 20;
         this.currentRoundState = 0;
@@ -42,13 +44,6 @@ module.exports = class Game {
         this.cardsDealt = false;
         this.bettersTurn = undefined;
         this.bettersTurnOutOfTime = undefined;
-    }
-    async waitFor(time) {
-        await new Promise((resolve, reject) => {
-            setTimeout(() => {
-                return resolve();
-            }, time);
-        });
     }
 
     getState() {
@@ -119,9 +114,6 @@ module.exports = class Game {
 
         if (playerCount == 2) {
             //this is the second person to join and the game can now start.
-            //this person will be small blind
-            // await this.waitFor(3000);
-
             //and game may now start
             this.startGame();
         }
@@ -222,13 +214,14 @@ module.exports = class Game {
 
         this.bettersTurn = this.positionsToBet[0];
         this.emitGameStateUpdate();
-        this.emitNextPlayerToBet();
+        this.emitNextPlayerToBet(); //TESTING THE FOLD!!!
     }
 
     emitNextPlayerToBet() {
         const currentBetSize = this.bet.biggestBet;
         const player = this.positions[this.bettersTurn];
         if (!player) {
+            //todo, fold and remove player from game
             throw Error("This player left?!?");
         }
         const hasBetSize = player.bet;
@@ -341,6 +334,7 @@ module.exports = class Game {
             this.bet.biggestBet = player.bet;
         }
 
+        this.emitToRoom("playerBet", { position: position, bet: betSize });
         this.emitToRoom("chipBalance", {
             position,
             chips: player.chips,

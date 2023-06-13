@@ -187,6 +187,14 @@ export function Board() {
             pixiGame.setSmallBlindChip({ position });
         });
 
+        mySocket.on("playerBet", ({ position, bet }) => {
+            handleEventsLog({
+                color: "#098f20",
+                msg: `Player ${position} bet ${bet}`,
+            });
+            pixiGame.playerBet({ position, bet });
+        });
+
         return () => {
             console.log("un mont the board?");
             mySocket.off("cardsDealt");
@@ -205,6 +213,8 @@ export function Board() {
             mySocket.off("setDealerChip");
             mySocket.off("setBigBlindChip");
             mySocket.off("setSmallBlindChip");
+            mySocket.off("playerBet");
+
             pixieAppRef.current.destroy(true, true);
             pixieAppRef.current = null;
             pixiGame.destroy();
@@ -222,7 +232,7 @@ export function Board() {
     function runTest() {
         // alert("works");
         // pixiGame.playersBettingTurn(0);
-        pixiGame.dealFlop(["5S", "3H", "KD"]);
+        pixiGame.dealFlop(["5_of_spades", "3_of_hearts", "king_of_diamonds"]);
     }
 
     function myTurn() {
@@ -245,6 +255,14 @@ export function Board() {
         mySocket.emit("TESTsetSmallBlind");
     }
 
+    function testBet() {
+        mySocket.emit("testBet");
+    }
+
+    function testFold() {
+        mySocket.emit("testFold");
+    }
+
     function handleEventsLog(event) {
         setEventLogs((logs) => {
             return [...logs, event];
@@ -257,6 +275,20 @@ export function Board() {
     return (
         <BoardContainer>
             <TestButtonsContainer>
+                <button
+                    onClick={() => {
+                        testFold();
+                    }}
+                >
+                    Test FOLD
+                </button>{" "}
+                <button
+                    onClick={() => {
+                        testBet();
+                    }}
+                >
+                    Test Bet BB
+                </button>
                 <button
                     onClick={() => {
                         setBB();

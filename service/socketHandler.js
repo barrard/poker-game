@@ -2,7 +2,7 @@ const { v4: uuidv4 } = require("uuid");
 const rp = require("request-promise");
 const Game = require("../classes/Game");
 const GamesManager = require("../classes/GamesManager");
-
+const { waitFor } = require("../service/serverUtils");
 const gamesManager = new GamesManager();
 const userGames = {};
 const socketRoomMap = {};
@@ -184,6 +184,31 @@ module.exports = (io) => {
             const game = gamesManager.getGame(roomId);
             if (!game) return;
             game.emitToRoom("setSmallBlindChip", { position: 0 });
+        });
+        socket.on("testFold", async () => {
+            const roomId = getRoomId(socket);
+            const game = gamesManager.getGame(roomId);
+            let user = socketUserMap[socket.id];
+
+            if (!game) return;
+            //need to mimic game start
+            //deal cards
+            game.state = 1;
+            game.startGame();
+
+            await waitFor(10000);
+            //then test the fold
+            game.emitToRoom("playerFold", { position: user.position });
+        });
+
+        socket.on("testBet", () => {
+            const roomId = getRoomId(socket);
+            const game = gamesManager.getGame(roomId);
+            let user = socketUserMap[socket.id];
+
+            if (!game) return;
+            game.startGame();
+            game.emitToRoom("playerBet", { position: user.position, bet: 10 });
         });
     });
 };
