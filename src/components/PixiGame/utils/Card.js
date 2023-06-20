@@ -130,7 +130,7 @@ export default class Card {
     }
 
     turnFaceDown() {
-        const timeline = this.pixiGame.gsap.timeline({
+        this.timeline = this.pixiGame.gsap.timeline({
             onUpdate: async (v) => {
                 console.log(this.container.skew["_y"]);
                 if (this.cardFaceDown) return;
@@ -169,7 +169,7 @@ export default class Card {
 
         const width = this.cardWidth * this.pixiGame.globalScale * 0.25;
         const height = this.cardHeight * this.pixiGame.globalScale * 0.25;
-        timeline.to(this.container, {
+        this.timeline.to(this.container, {
             duration: 1,
 
             pixi: {
@@ -181,7 +181,7 @@ export default class Card {
     }
 
     flipCard() {
-        const timeline = this.pixiGame.gsap.timeline({
+        this.timeline = this.pixiGame.gsap.timeline({
             onUpdate: async (v) => {
                 if (this.cardFaceDrawn) return;
                 if (
@@ -197,6 +197,9 @@ export default class Card {
                             ? this.pixiGame.playerCards[0]
                             : this.pixiGame.playerCards[1];
 
+                    if (!cardFile) {
+                        return console.error("CardFile is undefined");
+                    }
                     const textureUrl = `/img/cards/${cardFile}.png`;
                     const texture = await Assets.load(textureUrl);
 
@@ -215,7 +218,7 @@ export default class Card {
             },
         });
 
-        timeline.to(this.container, {
+        this.timeline.to(this.container, {
             duration: 1,
 
             pixi: {

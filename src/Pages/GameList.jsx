@@ -14,21 +14,37 @@ import {
 export default function GameList(props) {
     // console.log(props);
     const { gameList, history, match } = props;
-    const { user, mySocket, setGameList } = useContext(MainContext);
+    const { user, mySocket, setGameList, isConnected } =
+        useContext(MainContext);
+
+    // useEffect(() => {
+    //     if (!mySocket) return;
+
+    //     mySocket.emit("joinWaitingRoom");
+
+    //     return () => {};
+    // }, []);
 
     //HANDLES THE GAMES LIST
     useEffect(() => {
-        if (!mySocket) return;
-        mySocket.on("gameList", (games) => {
-            //user has joined the game and assigned a color
-            console.log("gameList", games);
-            setGameList(games);
-        });
+        if (!mySocket || !isConnected) return;
+
+        // mySocket.on("connected", (games) => {
+        console.log("Join waiting room please");
+        mySocket.emit("joinWaitingRoom");
+        // });
+        // mySocket.on("gameList", (games) => {
+        //     //user has joined the game and assigned a color
+        //     console.log("gameList", games);
+        //     setGameList(games);
+        // });
 
         return () => {
-            mySocket.off("gameList");
+            // console.log("off connected");
+            // mySocket.off("gameList");
+            // mySocket.off("connected");
         };
-    }, [mySocket]);
+    }, [mySocket, isConnected]);
 
     return (
         <div>

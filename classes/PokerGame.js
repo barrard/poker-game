@@ -1,11 +1,11 @@
 const Deck = require("./Deck");
 const PokerHand = require("poker-hand-evaluator");
 module.exports = class PokerGame {
-    constructor({ playerPositions }) {
-        this.players = playerPositions.reduce((acc, player, i) => {
-            acc[player] = { hand: [], chips: player.chips };
-            return acc;
-        }, {});
+    constructor({ players }) {
+        this.players = players; //Positions.reduce((acc, player, i) => {
+        // acc[player] = { position: player, hand: [], chips: player.chips };
+        // return acc;
+        // }, {});
         this.winner = { score: Infinity };
         this.deck = new Deck();
         this.deck.shuffle();
@@ -17,21 +17,21 @@ module.exports = class PokerGame {
         this.winner = { score: Infinity, sameScore: [] };
     }
 
-    dealBoard(position) {
-        this.board.push(this.deck.drawCard());
-    }
     dealFlop() {
         this.flop = [];
+        const burn = this.deck.drawCard();
         this.flop.push(this.deck.drawCard());
         this.flop.push(this.deck.drawCard());
         this.flop.push(this.deck.drawCard());
     }
 
     dealRiver() {
+        const burn = this.deck.drawCard();
         this.river = this.deck.drawCard();
     }
 
     dealTurn() {
+        const burn = this.deck.drawCard();
         this.turn = this.deck.drawCard();
     }
 
@@ -43,7 +43,7 @@ module.exports = class PokerGame {
 
     dealPlayer(player) {
         const card = this.deck.drawCard();
-        this.players[player].hand.push(card);
+        player.hand.push(card);
         return card;
     }
 
@@ -56,7 +56,11 @@ module.exports = class PokerGame {
             player.bestHand = this.getBestHand([...board, ...hand]);
 
             if (player.bestHand.score < this.winner.score) {
-                this.winner = { ...player, score: player.bestHand.score };
+                this.winner = {
+                    ...player,
+                    score: player.bestHand.score,
+                    position,
+                };
                 this.winner.sameScore = [];
             } else if (player.bestHand.score == this.winner.score) {
                 this.winner.sameScore.push({

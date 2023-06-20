@@ -28,12 +28,14 @@ const tableWidth =
 const tableHeight = (tableWidth / 1920) * 1080;
 const globalScale = tableWidth / 1920;
 
-export function Board() {
+export function Board(props = {}) {
+    const { gameId } = props;
     const { user, mySocket, currentHand, gameState, setEventLogs } =
         useContext(MainContext);
 
     // console.log({ gameState, user, tableHeight, tableWidth });
 
+    const gameIdRef = useRef(gameId);
     const appRef = useRef(null);
     const pixieAppRef = useRef(null);
     const pixiCanvasRef = useRef(null);
@@ -192,6 +194,7 @@ export function Board() {
                 color: "#098f20",
                 msg: `Player ${position} bet ${bet}`,
             });
+            debugger;
             pixiGame.playerBet({ position, bet });
         });
 
@@ -219,6 +222,7 @@ export function Board() {
             pixieAppRef.current = null;
             pixiGame.destroy();
             setPixiGame(false);
+            mySocket.emit("leaveGame", gameIdRef.current);
         };
     }, []);
 

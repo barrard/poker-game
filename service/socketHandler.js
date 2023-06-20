@@ -20,9 +20,8 @@ module.exports = (io) => {
             handleDisconnect(socket);
         });
         console.log("CONNECTED");
-        joinRoom(socket, waitingRoom);
         //create uuid
-        let user = await getUser();
+        let user = await createUser();
         console.log("a user connected assigned as " + user.name);
         sockets[user.id] = socket;
         console.log(socket.id);
@@ -30,7 +29,6 @@ module.exports = (io) => {
         //send the user thier ID
         socket.emit("setUser", user);
         //send them all the gamesManager
-        socket.emit("gameList", gamesManager.getGamesState());
 
         socket.on("createGame", () => {
             let user = socketUserMap[socket.id];
@@ -44,22 +42,55 @@ module.exports = (io) => {
             io.to(waitingRoom).emit("gameList", gamesManager.getGamesState());
         });
 
+        socket.on("joinWaitingRoom", () => {
+            console.log("adding socket to waiting room");
+            joinRoom(socket, waitingRoom);
+            socket.emit("gameList", gamesManager.getGamesState());
+        });
         socket.on("joinGame", (gameId) => {
             //user wants to join this game
             joinGame(socket, gameId);
         });
 
-        socket.on("hasJoined", () => {
-            hasJoinedGame(socket);
+        socket.on("hasJoined", (gameId) => {
+            hasJoinedGame(socket, gameId);
         });
 
         socket.on("leaveGame", (gameId) => {
-            //user wants to join this game
+            //user wants to leave this game
             leaveGame(socket, gameId);
         });
 
+        //DEPRECATED
+        socket.on("hasLeft", (position) => {
+            //a player has emitted a hasLeft event and passed along their position.
+            const roomId = getRoomId(socket);
+            if (roomId === null) {
+                return console.log("Room is nulllllll");
+            }
+            if (roomId === "waiting room") {
+                return console.log("Later hater and or joined game");
+            }
+            const game = gamesManager.getGame(roomId);
+
+            if (!game) {
+                return console.error(`Game does not exist ${roomId}`);
+            }
+            //find the game, double check the position,
+            const userSocket = verifyUserGame(game, socket);
+            if (!userSocket) return;
+            console.log("WE GOOOD");
+
+            // and clear this person from the game
+            delete game.positions[position];
+            delete game.sockets[position];
+            delete game.players[userSocket.id];
+            game.removePlayer(userSocket, socket);
+            game.emitGameStateUpdate();
+        });
+
         socket.on("betCheckFold", (data) => {
-            console.log(data);
+            // console.log(data);
 
             const roomId = getRoomId(socket);
             if (roomId === null) {
@@ -67,12 +98,13 @@ module.exports = (io) => {
             }
             const game = gamesManager.getGame(roomId);
 
-            const userSocket = verifyUserSocket(game, socket);
+            const userSocket = verifyUserGame(game, socket);
+            if (!userSocket) return;
 
             console.log("WE GOOOD");
             //whats this gamesManager current biggest bet?
-            const positionBetting = game.bettersTurn;
-            const playerPosition = game.bettersTurn;
+            const positionBetting = game.bettersTurn.position;
+            const playerPosition = game.bettersTurn.position;
             if (positionBetting !== userSocket.position) {
                 return socket.emit("error", {
                     msg: "Betting out of turn",
@@ -106,7 +138,7 @@ module.exports = (io) => {
                         } else {
                             //TODO
                             //think more about how to handle this
-                            game.handlePlayerBet(positionBetting, playersBet);
+                            game.handlePlayerBet(game.bettersTurn, playersBet);
                             game.nextPositionToBet();
 
                             return socket.emit("error", {
@@ -114,7 +146,7 @@ module.exports = (io) => {
                             });
                         }
                     } else {
-                        game.handlePlayerBet(positionBetting, playersBet);
+                        game.handlePlayerBet(game.bettersTurn, playersBet);
                         game.nextPositionToBet();
                     }
                 } else if (action === "check") {
@@ -210,57 +242,64 @@ module.exports = (io) => {
             game.startGame();
             game.emitToRoom("playerBet", { position: user.position, bet: 10 });
         });
+        socket.emit("connected");
     });
 };
 
 function handleDisconnect(socket) {
-    let user = socketUserMap[socket.id];
-    // let roomId = socketRoomMap[socket.id];
+    const user = getUser(socket);
     const roomId = getRoomId(socket);
 
-    if (user === null) {
-        console.log("user is nulllllll");
-    } else {
-        console.log(`user ${user?.name} disconnected`);
-    }
-    if (roomId === null) {
-        return console.log("Room is nulllllll");
-    }
+    removeSocket(socket, roomId, user);
 
-    leaveGame(socket, roomId);
+    console.log(`user ${user?.name} disconnected`);
+    console.log(`Room is ${roomId}`);
+    if (user) {
+        delete sockets[user.id];
+    }
+    delete socketUserMap[socket.id];
 }
 function getRoomId(socket) {
     const room = socketRoomMap[socket.id];
-    // const roomMatches = [];
-    // socket.rooms.forEach((r) => {
-    //     const roomMatch = Object.keys(gamesManager.games).find(
-    //         (roomId) => roomId === r
-    //     );
-    //     if (roomMatch) {
-    //         roomMatches.push(roomMatch);
-    //     }
-    // });
-    // if (roomMatches.length > 1 || roomMatches.length < 1) {
-    //     return null;
-    //     // throw Error("WHAT ROOOMS MATCH?!");
-    // }
-    // const roomId = roomMatches[0];
+
     return room;
 }
 
-function verifyUserSocket(game, socket) {
-    const [socketPos, gameSocket] = Object.entries(game.sockets).find(
-        ([pos, s]) => {
-            if (s.id === socket.id) {
-                return pos;
-            }
-        }
-    );
+function getUser(socket) {
+    const user = socketUserMap[socket.id];
 
+    return user;
+}
+
+function verifyUserGame(game, socket) {
+    if (!Object.entries(game.sockets).length) return;
+    const match = Object.entries(game.sockets).find(([pos, s]) => {
+        if (s.id === socket.id) {
+            return pos;
+        }
+    });
+
+    if (!match) {
+        return console.log(
+            "When did you get removed?  And does everyone know about this?"
+        );
+    }
+    const [socketPos, gameSocket] = match;
     const userSocket = socketUserMap[socket.id];
 
     if (parseInt(socketPos) !== userSocket.position) {
-        throw Error("WrongSocket Position");
+        // throw Error("WrongSocket Position");
+        return false;
+    }
+    const playerAtPosition = game.positions[userSocket.position];
+    if (playerAtPosition?.id !== userSocket.id) {
+        return false;
+    }
+
+    const player = game.players[userSocket.id];
+    if (parseInt(socketPos) !== player.position) {
+        // throw Error("WrongSocket Position");
+        return false;
     }
     return userSocket;
 }
@@ -268,7 +307,7 @@ function verifyUserSocket(game, socket) {
 function joinRoom(socket, room) {
     socket.join(room);
     if (!socketRoomMap[socket.id]) {
-        socketRoomMap[room] = "";
+        socketRoomMap[socket.id] = "";
     }
     socketRoomMap[socket.id] = room;
 }
@@ -278,7 +317,7 @@ function leaveRoom(socket, room) {
     if (!room) {
         console.log("No room");
     } else {
-        delete socketRoomMap[socket.id];
+        // delete socketRoomMap[socket.id];
 
         if (roomId === waitingRoom) {
             console.log("Later hater");
@@ -287,6 +326,7 @@ function leaveRoom(socket, room) {
             let user = socketUserMap[socket.id];
             if (!user) {
                 console.log("WTF??");
+                throw Error("Hows this guy leaving?");
             }
             if (game) {
                 game.removePlayer(user, socket);
@@ -295,7 +335,7 @@ function leaveRoom(socket, room) {
     }
 }
 
-async function getUser() {
+async function createUser() {
     try {
         let { results } = await rp("https://randomuser.me/api/", {
             json: true,
@@ -321,32 +361,53 @@ function createNewGame(socketIo) {
     return game;
 }
 
-function hasJoinedGame(socket) {
+function hasJoinedGame(socket, gameId) {
     let user = socketUserMap[socket.id];
-    let roomId = socketRoomMap[socket.id];
-    let game = gamesManager.getGame(roomId);
-    if (!game || roomId === "waiting room") {
+    // let roomId = socketRoomMap[socket.id];
+    let game = gamesManager.getGame(gameId);
+    if (!game || gameId === "waiting room") {
         console.log("no game");
         //TODO move player to waiting room and emit game list state
+        //try join game?
         return;
     }
-    game.playerHasJoined(user);
+    game.playerHasJoined(user, socket);
+}
+
+function removeSocket(socket, gameId, user) {
+    //we know a socket has left the server, but does the game know?
+    let game = gamesManager.getGame(gameId);
+    //does this game still know about the user?
+    //check players, positions,
+    console.log(game);
+    const gameUser = game?.players?.[user.id];
+    const gamePosition = game?.positions?.[user.position];
+    const gameSocket = game?.sockets?.[user.position];
+
+    if (gameUser || gamePosition || gameSocket) {
+        game.removePlayer(user, socket);
+    }
+
+    //no matter what, we will remove the user from
+    //the socket handler data
+    delete socketUserMap[socket.id];
+    delete socketRoomMap[socket.id];
 }
 function leaveGame(socket, gameId) {
     let user = socketUserMap[socket.id];
-    //make sure player limit is not reached
+
+    console.log("leaveGame");
     let game = gamesManager.getGame(gameId);
     if (!game) {
-        socket.emit("error", { msg: "Game does not exist" });
-        socket.emit("gameList", gamesManager.getGamesState());
-
+        if (socket.connected) {
+            //TODO this should be requested and not sent automatically
+            // joinRoom(socket, waitingRoom);
+            // socket.emit("gameList", gamesManager.getGamesState());
+            socket.emit("error", { msg: "Game does not exist" });
+        }
         return;
-    }
-    leaveRoom(socket, gameId);
-
-    if (socket.connected) {
-        joinRoom(socket, waitingRoom);
-        socket.emit("gameList", gamesManager.getGamesState());
+    } else {
+        leaveRoom(socket, gameId);
     }
 }
 

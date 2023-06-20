@@ -72,7 +72,7 @@ export default class PixiGame {
         this.mainChartContainer.addChild(this.playerContainer);
         this.mainChartContainer.addChild(this.overlayContainer);
         this.pixiApp.stage.addChild(this.mainChartContainer);
-        this.mySocket.emit("hasJoined");
+        this.mySocket.emit("hasJoined", this.gameState.id);
     }
 
     // loadAllAssets() {
@@ -182,13 +182,19 @@ export default class PixiGame {
     }
 
     removePlayer(playerPosition) {
+        if (playerPosition == undefined) {
+            return console.log("removePlayer is undefined");
+        }
         const mappedPosition = this.seatPositionMap[playerPosition];
         const player = this.playerSprites[mappedPosition];
         if (!player) {
             debugger;
         }
         player.killBetTimerAnimation();
+        player.destroy();
         delete this.playerSprites[mappedPosition];
+        debugger;
+        //todo delete cards or anything else, player fold or whatever
     }
 
     drawDealerBlindMarkers() {
@@ -201,7 +207,6 @@ export default class PixiGame {
 
     addDealMarker(name, loc, letter, color, textColor) {
         const dealerLoc = this.positionLocations[loc];
-        //drawDealerChip
 
         this.marker[name] = new Container();
         this.marker[name].position.x = dealerLoc.x;
@@ -225,23 +230,11 @@ export default class PixiGame {
     }
 
     drawPlayers() {
-        // console.log("drawPlayers");
         if (!this.seatPositionMap) return;
         //for each player, DrawPlayer
         Object.keys(this.gameState.players).forEach((playerId) => {
             const player = this.gameState.players[playerId];
             this.addPlayer(player);
-            // const { position } = player;
-            // const mappedPosition = this.seatPositionMap[position];
-            // player.mappedPosition = mappedPosition;
-            // const location = this.positionLocations[mappedPosition];
-            // // console.log(location);
-            // const playerSprite = new Player({
-            //     location,
-            //     pixiGame: this,
-            //     player,
-            // });
-            // this.playerSprites[mappedPosition] = playerSprite;
         });
     }
 
@@ -311,6 +304,7 @@ export default class PixiGame {
         this.potGfx.beginFill(0xffffff, 0.1);
         this.potGfx.drawRoundedRect(-width / 2, -height / 2, width, height, 5);
     }
+
     drawBurnPileLoc() {
         const bpGfx = new Graphics();
         this.burnPileGfx = bpGfx;
@@ -337,7 +331,6 @@ export default class PixiGame {
 
         let isCard1 = true;
         players.forEach((playerPos, i) => {
-            // console.log(`dealing ${isCard1 ? " card 1" : "card 2"}`);
             this.dealCard({
                 playerPositions,
                 playerPos,
@@ -349,8 +342,6 @@ export default class PixiGame {
 
         setTimeout(() => {
             players.forEach((playerPos, i) => {
-                // console.log(`dealing ${isCard1 ? " card 1" : "card 2"}`);
-
                 this.dealCard({
                     playerPositions,
                     playerPos,
@@ -377,7 +368,7 @@ export default class PixiGame {
         let delayIndex = 0;
         let position = 3;
         debugger;
-        this.dealBoardCard(position, ++delayIndex, turn);
+        this.dealBoardCard(position, delayIndex, turn);
     }
 
     dealRiver(river) {
@@ -387,18 +378,14 @@ export default class PixiGame {
         let delayIndex = 0;
         let position = 4;
         debugger;
-        this.dealBoardCard(position, ++delayIndex, river);
+        this.dealBoardCard(position, delayIndex, river);
     }
 
     dealBoardCard(position, delayIndex, cardValue) {
         const location = this.boardCardPositions[position];
-
-        debugger;
         const card = new Card({
             location,
             pixiGame: this,
-            // width,
-            // height,
             isBoardPosition: position,
             delayIndex,
             cardValue,
@@ -414,16 +401,9 @@ export default class PixiGame {
         const playerSprite = this.playerSprites[mappedPosition];
         const isYou = this.YOUR_POSITION === mappedPosition;
 
-        //card size?+
-        // isYou?
-        //isBoard?
-        // let width = scale;
-        // let height = scale;
         const card = new Card({
             location,
             pixiGame: this,
-            // width,
-            // height,
             isCard1,
             delayIndex,
             isYou,
@@ -484,9 +464,9 @@ export default class PixiGame {
 
         sprite.sprite.position.x = x; // -sprite.sprite.height;
         sprite.sprite.position.y = y; // -sprite.sprite.width / 2;
-        const chipScale = 50;
-        sprite.sprite.scale.x = chipScale / this.width; // 0.25;
-        sprite.sprite.scale.y = chipScale / this.width; // 0.25;
+        const chipScale = 50 * this.globalScale;
+        sprite.sprite.scale.x = chipScale; /// this.width; // 0.25;
+        sprite.sprite.scale.y = chipScale; /// this.height; // 0.25;
         this.overlayContainer.addChild(sprite.sprite);
 
         this.gsap.to(sprite.sprite, {
@@ -501,7 +481,7 @@ export default class PixiGame {
 
     chipBalance({ position, chips }) {
         const player = this.getPlayerSprite(position);
-        player.setBalance(chips);
+        player.setChipBalance(chips);
     }
 
     playerCheck({ position }) {
@@ -518,10 +498,11 @@ export default class PixiGame {
         //clear the timer and select
 
         const player = this.getPlayerSprite(position);
-        player.endTurn();
+        player?.endTurn();
     }
 
     playerWins({ position }) {
+        debugger;
         const player = this.getPlayerSprite(position);
         player.win();
         // this.awardWinner();//TODO doesn't exist
@@ -593,5 +574,10 @@ export default class PixiGame {
     destroy() {
         console.log("dis game stay ovah!");
         //kill any animation like players timers
+        //this player has left, remove att their shit
+        this.removePlayer(this.YOU?.position);
+        this.yourHandSprites.card1?.timeline?.kill();
+        this.yourHandSprites.card2?.timeline?.kill();
+        // this.mySocket.emit("hasLeft", this.YOU.position);
     }
 }

@@ -51,12 +51,19 @@ export default class Player {
             fontWeight: "bold",
             align: "center",
         });
-        const balanceText = new Text(this.player.chips, textStyle);
+        const chipBalanceText = new Text("", textStyle);
 
-        this.balanceText = balanceText || "";
-        container.addChild(balanceText);
+        this.chipBalanceText = chipBalanceText || "";
+        this.chipBalanceText.anchor.x = 0.5;
+        this.chipBalanceText.anchor.y = 0.5;
+        this.chipBalanceText.position.y = this.pixiGame.width * 0.025; // -sprite.sprite.height;
+        this.chipBalanceText.position.x = 0; // -sprite.sprite.width / 2;
+        container.addChild(chipBalanceText);
         // }
         this.draw();
+    }
+    destroy() {
+        this.container.destroy(true);
     }
 
     async draw() {
@@ -66,10 +73,6 @@ export default class Player {
             pixiGame: this.pixiGame,
         });
         await sprite.load();
-        this.balanceText.anchor.x = 0.5;
-        this.balanceText.anchor.y = 0.5;
-        this.balanceText.position.y = this.pixiGame.width * 0.025; // -sprite.sprite.height;
-        this.balanceText.position.x = 0; // -sprite.sprite.width / 2;
 
         this.container.addChild(sprite.sprite);
         //draw chips
@@ -236,12 +239,17 @@ export default class Player {
         // End the shape
         this.errorGfx.endFill();
         setTimeout(() => {
-            this.errorGfx.clear();
+            if (!this.errorGfx._geometry) {
+                return console.log(
+                    "I guess this errorGfx has already been destroyed"
+                );
+            }
+            this.errorGfx?.clear();
         }, 2000);
     }
 
-    setBalance(balance) {
-        this.balanceText.text = balance;
+    setChipBalance(balance) {
+        this.chipBalanceText.text = balance;
     }
 
     betCheckFold(data) {

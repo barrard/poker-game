@@ -32,6 +32,7 @@ function App(props) {
     let location = useLocation();
 
     const [mySocket, setMySocket] = useState(null);
+    const [isConnected, setIsConnected] = useState(false);
     const [user, setUser] = useState("");
     const [gameList, setGameList] = useState({});
     const [gameState, setGameState] = useState({});
@@ -68,8 +69,20 @@ function App(props) {
 
                 setGameList({ ...gameList });
             }
+
+            mySocket.on("connected", (games) => {
+                console.log("Join waiting room please");
+                // mySocket.emit("joinWaitingRoom");
+                setIsConnected(true);
+            });
             mySocket.on("setUser", (data) => {
                 setUser(data);
+            });
+
+            mySocket.on("gameList", (games) => {
+                //user has joined the game and assigned a color
+                console.log("gameList", games);
+                setGameList(games);
             });
 
             mySocket.on("gameRoomCreated", updateGameList);
@@ -103,6 +116,7 @@ function App(props) {
             value={{
                 user,
                 mySocket,
+                isConnected,
                 gameState,
                 currentHand,
                 setGameList,

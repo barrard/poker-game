@@ -20,6 +20,7 @@ export default function GameRoom(props) {
     const {
         user,
         mySocket,
+        isConnected,
         gameState,
         errMsg,
         setErrMsg,
@@ -41,14 +42,16 @@ export default function GameRoom(props) {
     }, [mySocket, user]);
 
     useEffect(() => {
+        if (!mySocket || !isConnected) return;
         if (gameId !== gameState.id) {
             setErrMsg({ msg: "You sure this is the right room?" });
         }
-    }, [gameState]);
+    }, [gameState, mySocket]);
+
     if (!gameState) {
         return <>....Connecting to {match.params.gameId}</>;
     }
-
+    console.log("Game room render", gameState.state);
     return (
         <Container fluid className="g-0">
             <Row>
@@ -56,12 +59,13 @@ export default function GameRoom(props) {
                     <Button
                         className="btn btn-primary"
                         onClick={() => {
-                            mySocket.emit("leaveGame", gameId);
+                            // mySocket.emit("leaveGame", gameId);
                             history.push("/");
                         }}
                     >{`< HOME`}</Button>
 
                     <div>GameRoom - {props.match.params.gameId}</div>
+                    <div>Game State - {gameState.state}</div>
                 </Col>
                 <Col className="border g-0" sm="">
                     {/* <p>Events</p> */}
@@ -99,7 +103,7 @@ export default function GameRoom(props) {
                     {gameState?.state === 10 && <Alert>Showdown</Alert>} */}
 
                     <BoardContainer>
-                        <Board />
+                        <Board gameId={gameId} />
                     </BoardContainer>
                 </div>
             </Row>
