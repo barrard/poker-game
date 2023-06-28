@@ -18,7 +18,7 @@ export default class Player {
         const { location = {} } = opts;
         const { x, y, chipCoords } = location;
         this.chipCoords = chipCoords;
-        this.playerBetTime = 20;
+        this.playerBetTime = process.env.REACT_APP_PLAYER_BET_TIME;
 
         this.location = opts.location;
         this.pixiGame = opts.pixiGame;
@@ -51,19 +51,30 @@ export default class Player {
             fontWeight: "bold",
             align: "center",
         });
-        const chipBalanceText = new Text("", textStyle);
+        console.log(this.player);
+        const chipBalance = this.player.chips;
+        const chipBalanceText = new Text(0, textStyle);
 
-        this.chipBalanceText = chipBalanceText || "";
+        this.chipBalanceText = chipBalanceText;
         this.chipBalanceText.anchor.x = 0.5;
         this.chipBalanceText.anchor.y = 0.5;
         this.chipBalanceText.position.y = this.pixiGame.width * 0.025; // -sprite.sprite.height;
         this.chipBalanceText.position.x = 0; // -sprite.sprite.width / 2;
         container.addChild(chipBalanceText);
+        this.setChipBalance(chipBalance);
+
         // }
         this.draw();
     }
+
     destroy() {
-        this.container.destroy(true);
+        const that = this;
+        this.pixiGame.playerContainer.removeChild(this.container);
+        this.cardSprites.forEach((card) => {
+            card?.timeline?.kill();
+            that.pixiGame.mainContainer.removeChild(card);
+        });
+        // this.container.destroy(true);
     }
 
     async draw() {
@@ -89,9 +100,9 @@ export default class Player {
             pixiGame: this.pixiGame,
         });
         await sprite.load();
-        const chipScale = 50;
-        sprite.sprite.scale.x = chipScale / this.pixiGame.width; // 0.25;
-        sprite.sprite.scale.y = chipScale / this.pixiGame.width; // 0.25;
+        const chipScale = 0.08 * this.pixiGame.globalScale;
+        sprite.sprite.scale.x = chipScale; // this.pixiGame.width; // 0.25;
+        sprite.sprite.scale.y = chipScale; // this.pixiGame.width; // 0.25;
         const x = this.location.chipCoords.x - this.location.x;
         const y = this.location.chipCoords.y - this.location.y;
         sprite.sprite.position.set(x, y);
@@ -184,31 +195,35 @@ export default class Player {
                 this.pixiGame.yourHandSprites["card1"],
                 this.pixiGame.yourHandSprites["card2"],
             ];
-            cards[0].turnFaceDown();
-            cards[1].turnFaceDown();
+            cards[0]?.turnFaceDown();
+            cards[1]?.turnFaceDown();
         } else {
             cards = this.cardSprites;
         }
         const [card1, card2] = cards;
 
-        this.pixiGame.gsap.to(card1.container, {
-            pixi: {
-                x: this.pixiGame.burnPileLoc.x + grn(-10, 10),
-                y: this.pixiGame.burnPileLoc.y + grn(-10, 10),
-                angle: -360 + grn(-20, 20),
-            },
-            duration: 1,
-            ease: "power1.out",
-        });
-        this.pixiGame.gsap.to(card2.container, {
-            pixi: {
-                x: this.pixiGame.burnPileLoc.x + grn(-10, 10),
-                y: this.pixiGame.burnPileLoc.y + grn(-10, 10),
-                angle: -360 + grn(-20, 20),
-            },
-            duration: 1,
-            ease: "power1.out",
-        });
+        if (card1) {
+            this.pixiGame.gsap.to(card1.container, {
+                pixi: {
+                    x: this.pixiGame.burnPileLoc.x + grn(-10, 10),
+                    y: this.pixiGame.burnPileLoc.y + grn(-10, 10),
+                    angle: -360 + grn(-20, 20),
+                },
+                duration: 1,
+                ease: "power1.out",
+            });
+        }
+        if (card2) {
+            this.pixiGame.gsap.to(card2.container, {
+                pixi: {
+                    x: this.pixiGame.burnPileLoc.x + grn(-10, 10),
+                    y: this.pixiGame.burnPileLoc.y + grn(-10, 10),
+                    angle: 360 + grn(-20, 20),
+                },
+                duration: 1,
+                ease: "power1.out",
+            });
+        }
     }
 
     endTurn() {

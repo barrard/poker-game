@@ -48,17 +48,19 @@ export default class PixiGame {
         this.gameState = gameState;
         this.maxPlayers = 8;
 
-        this.mainChartContainer = new Container();
+        this.mainContainer = new Container();
         this.overlayContainer = new Container();
         this.playerContainer = new Container();
-        // this.mainChartContainer.scale.x = 0.25;
-        // this.mainChartContainer.scale.y = 0.25;
+        // this.mainContainer.scale.x = 0.25;
+        // this.mainContainer.scale.y = 0.25;
         this.yourHandSprites = { card1: null, card2: null };
         this.playerSprites = {};
         this.playerBetSprites = {};
+        this.allBetChipSprites = [];
 
         this.playerCards = [];
         this.flop = [];
+        this.allCardSprites = [];
 
         this.init();
     }
@@ -69,10 +71,57 @@ export default class PixiGame {
         this.drawDealer();
         this.drawPlayers();
         this.drawDealerBlindMarkers();
-        this.mainChartContainer.addChild(this.playerContainer);
-        this.mainChartContainer.addChild(this.overlayContainer);
-        this.pixiApp.stage.addChild(this.mainChartContainer);
+        this.mainContainer.addChild(this.playerContainer);
+        this.mainContainer.addChild(this.overlayContainer);
+        this.pixiApp.stage.addChild(this.mainContainer);
         this.mySocket.emit("hasJoined", this.gameState.id);
+    }
+
+    settleBets() {
+        console.log("settleBets");
+        //remove all the cards on the table.
+        console.log(this);
+        this.allCardSprites.forEach((card) => {
+            this.mainContainer.removeChild(card.container);
+        });
+        this.allCardSprites = [];
+        this.allBetChipSprites = [];
+    }
+    showDown(cards) {
+        console.log("showdown");
+        //all players involved need to show
+        console.log(this);
+        //their face cards
+        console.log(cards);
+
+        cards.forEach((card, i) => {
+            const mappedPosition = this.seatPositionMap[i];
+            const player = this.playerSprites[mappedPosition];
+            const cardSprites = player.cardSprites;
+            const location = this.positionLocations[mappedPosition];
+
+            const isYOU = this.YOUR_POSITION === mappedPosition;
+            // if (isYOU) {
+            //     console.log("show your card");
+            //     const yourCards = this.yourHandSprites;
+            //     //for each one call, layDown
+            cardSprites.forEach((cardSprite, i) => {
+                let cardValue;
+                let x, y, isCard1;
+                y = location.y;
+                if (i === 0) {
+                    cardValue = card["card1"];
+                    // x=location.x-
+                    isCard1 = true;
+                } else {
+                    cardValue = card["card2"];
+                }
+                cardSprite.showDown({ location, cardValue, isCard1 });
+            });
+            // } else {
+            console.log({ mappedPosition, cards, isYOU });
+            // }
+        });
     }
 
     // loadAllAssets() {
@@ -167,12 +216,13 @@ export default class PixiGame {
     }
 
     addPlayer(player) {
+        console.log("addPlayer");
         const { position } = player;
 
         const mappedPosition = this.seatPositionMap[position];
         const location = this.positionLocations[mappedPosition];
         player.mappedPosition = mappedPosition;
-
+        if (this.playerSprites[mappedPosition]) return;
         const playerSprite = new Player({
             location,
             pixiGame: this,
@@ -190,10 +240,10 @@ export default class PixiGame {
         if (!player) {
             debugger;
         }
-        player.killBetTimerAnimation();
-        player.destroy();
+        player?.killBetTimerAnimation();
+        player?.destroy();
         delete this.playerSprites[mappedPosition];
-        debugger;
+
         //todo delete cards or anything else, player fold or whatever
     }
 
@@ -249,13 +299,13 @@ export default class PixiGame {
         sprite.width = this.width;
         sprite.height = this.height;
 
-        this.mainChartContainer.addChild(sprite);
+        this.mainContainer.addChild(sprite);
         if (!this.seatPositionMap) return;
         //draw each seat position
         Object.keys(this.seatPositionMap).forEach((seatKey) => {
             const pos = this.positionLocations[this.seatPositionMap[seatKey]];
             const seatGfx = new Graphics();
-            this.mainChartContainer.addChild(seatGfx);
+            this.mainContainer.addChild(seatGfx);
             seatGfx.position.set(pos.x, pos.y);
 
             seatGfx.clear();
@@ -265,7 +315,7 @@ export default class PixiGame {
             const chipCoords = pos.chipCoords;
             if (!chipCoords) return;
             const chipAreaGfx = new Graphics();
-            this.mainChartContainer.addChild(chipAreaGfx);
+            this.mainContainer.addChild(chipAreaGfx);
             chipAreaGfx.position.set(chipCoords.x, chipCoords.y);
             chipAreaGfx.clear();
             chipAreaGfx.beginFill(0xeeeeee, 0.3);
@@ -276,7 +326,7 @@ export default class PixiGame {
         Object.keys(this.boardCardPositions).forEach((position) => {
             const pos = this.boardCardPositions[position];
             const seatGfx = new Graphics();
-            this.mainChartContainer.addChild(seatGfx);
+            this.mainContainer.addChild(seatGfx);
             seatGfx.position.set(pos.x, pos.y);
             const width = 222 * this.globalScale * 0.5;
             const height = 323 * this.globalScale * 0.5;
@@ -294,21 +344,42 @@ export default class PixiGame {
     }
 
     drawPotLoc() {
+        const x = this.width * 0.5;
+        const y = this.height * 0.4;
         this.potGfx = new Graphics();
-        this.mainChartContainer.addChild(this.potGfx);
-        this.potLoc = { x: this.width * 0.5, y: this.height * 0.4 };
+        this.mainContainer.addChild(this.potGfx);
+        this.potLoc = { x, y };
         this.potGfx.position.set(this.potLoc.x, this.potLoc.y);
         const width = 222 * this.globalScale * 0.35;
         const height = 323 * this.globalScale * 0.25;
         this.potGfx.clear();
         this.potGfx.beginFill(0xffffff, 0.1);
         this.potGfx.drawRoundedRect(-width / 2, -height / 2, width, height, 5);
+
+        const textStyle = new TextStyle({
+            fontFamily: "Arial",
+            fill: "white",
+            fontSize: this.width * 0.025,
+            fontWeight: "bold",
+            align: "center",
+        });
+
+        const potChipBalanceText = new Text("", textStyle);
+
+        this.potChipBalanceText = potChipBalanceText;
+        this.potChipBalanceText.anchor.x = 0.5;
+        this.potChipBalanceText.anchor.y = 0.5;
+        this.potChipBalanceText.position.y = y + this.globalScale * 50; // -sprite.sprite.height;
+        this.potChipBalanceText.position.x = x; // -sprite.sprite.width / 2;
+        this.mainContainer.addChild(potChipBalanceText);
+
+        this.setPotBalance("0");
     }
 
     drawBurnPileLoc() {
         const bpGfx = new Graphics();
         this.burnPileGfx = bpGfx;
-        this.mainChartContainer.addChild(this.burnPileGfx);
+        this.mainContainer.addChild(this.burnPileGfx);
         this.burnPileLoc = { x: this.width * 0.44, y: this.height * 0.35 };
         bpGfx.position.set(this.burnPileLoc.x, this.burnPileLoc.y);
         const width = 222 * this.globalScale * 0.35;
@@ -318,7 +389,12 @@ export default class PixiGame {
         bpGfx.drawRoundedRect(-width / 2, -height / 2, width, height, 5);
     }
 
+    setPotBalance(balance) {
+        this.potChipBalanceText.text = balance;
+    }
+
     dealCards(playerPositions) {
+        this.allCardSprites = [];
         playerPositions =
             playerPositions ||
             Object.values(this.gameState.players).map((player) => ({
@@ -390,6 +466,7 @@ export default class PixiGame {
             delayIndex,
             cardValue,
         });
+        // this.allCardSprites.push(card);
     }
 
     dealCard({ playerPositions, playerPos, isCard1, delayIndex }) {
@@ -410,9 +487,11 @@ export default class PixiGame {
         });
         if (isYou) {
             this.yourHandSprites[isCard1 ? "card1" : "card2"] = card;
+            playerSprite.cardSprites.push(card);
         } else {
             playerSprite.cardSprites.push(card);
         }
+        // this.allCardSprites.push(card);
     }
 
     setDealerChip({ position }) {
@@ -464,11 +543,12 @@ export default class PixiGame {
 
         sprite.sprite.position.x = x; // -sprite.sprite.height;
         sprite.sprite.position.y = y; // -sprite.sprite.width / 2;
-        const chipScale = 50 * this.globalScale;
+        const chipScale = 0.1 * this.globalScale;
         sprite.sprite.scale.x = chipScale; /// this.width; // 0.25;
         sprite.sprite.scale.y = chipScale; /// this.height; // 0.25;
         this.overlayContainer.addChild(sprite.sprite);
 
+        this.allBetChipSprites.push(sprite);
         this.gsap.to(sprite.sprite, {
             pixi: {
                 x: this.potLoc.x + grn(-10, 10),
@@ -479,9 +559,11 @@ export default class PixiGame {
         });
     }
 
-    chipBalance({ position, chips }) {
+    chipBalance({ position, chips, pot, bet }) {
+        console.log({ position, chips, pot, bet });
         const player = this.getPlayerSprite(position);
         player.setChipBalance(chips);
+        this.setPotBalance(pot);
     }
 
     playerCheck({ position }) {
@@ -502,10 +584,27 @@ export default class PixiGame {
     }
 
     playerWins({ position }) {
-        debugger;
         const player = this.getPlayerSprite(position);
         player.win();
-        // this.awardWinner();//TODO doesn't exist
+        this.awardWinner(position); //TODO doesn't exist
+    }
+
+    awardWinner(position) {
+        //just move the chips to their side
+        const player = this.getPlayerSprite(position);
+
+        console.log(this.allBetChipSprites);
+        this.allBetChipSprites.forEach((sprite, i) => {
+            this.gsap.to(sprite.sprite, {
+                pixi: {
+                    x: player.location.chipCoords.x + grn(-10, 10),
+                    y: player.location.chipCoords.y + grn(-10, 10),
+                },
+                duration: 1,
+                ease: "power1.out",
+                delay: 0.2 * i,
+            });
+        });
     }
 
     yourHand(hand) {
@@ -579,5 +678,14 @@ export default class PixiGame {
         this.yourHandSprites.card1?.timeline?.kill();
         this.yourHandSprites.card2?.timeline?.kill();
         // this.mySocket.emit("hasLeft", this.YOU.position);
+        this.settleBets();
+        this.allCardSprites.forEach((card) => {
+            card.timeline.kill();
+            // this.mainContainer.removeChild(card.container);
+        });
+    }
+
+    testDeal() {
+        this.dealCards();
     }
 }

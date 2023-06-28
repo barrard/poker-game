@@ -55,6 +55,7 @@ export default class Card {
     async init() {
         const container = new Container();
         this.container = container;
+        this.pixiGame.allCardSprites.push(this);
 
         const cardGfx = new Graphics();
         // cardGfx.pivot.set(0.5);
@@ -81,7 +82,7 @@ export default class Card {
         this.container.scale.x = 0;
         this.container.scale.y = 0;
 
-        this.pixiGame.mainChartContainer.addChild(container);
+        this.pixiGame.mainContainer.addChild(container);
 
         console.log("drawCard");
         this.draw();
@@ -109,7 +110,7 @@ export default class Card {
                 : this.x + this.width * 0.15;
         const y = this.y;
 
-        this.pixiGame.gsap.to(this.container, {
+        this.timeline = this.pixiGame.gsap.to(this.container, {
             pixi: {
                 x: x,
                 y: y,
@@ -127,6 +128,8 @@ export default class Card {
             ease: "power1.out",
             onComplete: this.isLargeCard ? this.flipCard.bind(this) : () => {},
         });
+
+        // this.pixiGame.allCardSprites.push(this.timeline);
     }
 
     turnFaceDown() {
@@ -176,6 +179,56 @@ export default class Card {
                 width,
                 height,
                 skewY: 0,
+            },
+        });
+    }
+
+    showDown({ location, cardValue, isCard1 }) {
+        const cardFile = cardValue;
+
+        console.log({ isCard1 });
+        this.location = location;
+        this.timeline = this.pixiGame.gsap.timeline({
+            onUpdate: async (v) => {
+                if (this.cardFaceDrawn) return;
+                if (
+                    this.container.skew["_y"] >= Math.PI / 2 &&
+                    !this.cardFaceDrawn
+                ) {
+                    this.cardFaceDrawn = true;
+
+                    if (!cardFile) {
+                        return console.error("CardFile is undefined");
+                    }
+                    const textureUrl = `/img/cards/${cardFile}.png`;
+                    const texture = await Assets.load(textureUrl);
+
+                    this.cardFaceSprite = Sprite.from(texture);
+                    this.cardFaceSprite.anchor.set(0.5);
+
+                    this.cardFaceSprite.width = this.width;
+                    this.cardFaceSprite.height = this.height;
+                    this.container.removeChild(this.cardBackSprite);
+                    this.container.addChild(this.cardFaceSprite);
+
+                    // this.cardFaceSprite.position.set(this.width, 0);
+
+                    this.cardFaceSprite.skew.y = -Math.PI;
+                }
+            },
+        });
+
+        this.timeline.to(this.container, {
+            duration: 1,
+
+            pixi: {
+                x: isCard1
+                    ? location.x - this.width * 0.35
+                    : location.x + this.width * 0.55,
+
+                y: location.y,
+                skewY: 180,
+                scale: this.isLargeCard ? 1 : 2,
             },
         });
     }

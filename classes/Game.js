@@ -10,7 +10,7 @@ module.exports = class Game {
         this.pot = 0;
         this.waitFor = waitFor;
 
-        this.allowedBetTime = 20;
+        this.allowedBetTime = parseInt(process.env.REACT_APP_PLAYER_BET_TIME);
         this.currentRoundState = 0;
 
         this.roundStates = {
@@ -78,25 +78,35 @@ module.exports = class Game {
             console.log("whooo?");
             console.log("whooo?");
             console.log("whooo?");
-            throw Error("I dont like this");
+            // throw Error("I dont like this");
+            return;
         }
+        const playerIsBetting = this.bettersTurn?.position === player.position;
 
         //was this player betting?
-        const playerIsBetting = this.bettersTurn?.position === player.position;
         if (playerIsBetting) {
             //fold them
             this.handlePlayerFold(player.position);
+        } else {
+            this.removePositionToBet(player.position);
         }
 
         delete this.players[user.id];
         delete this.positions[player.position];
         delete this.sockets[player.position];
-        var playerCount = this.getPlayerCount();
+        const playerCount = this.getPlayerCount();
+
         if (playerCount < 2) this.state = 0; //game is not active!!
 
         this.emitToRoom("removePlayer", player.position);
-        this.nextPositionToBet();
+
         this.emitGameStateUpdate();
+
+        //was this player betting?
+        if (playerIsBetting) {
+            //fold them
+            this.nextPositionToBet();
+        }
     }
 
     async addPlayer(user, socket) {
@@ -141,7 +151,7 @@ module.exports = class Game {
         if (playerCount == 2) {
             //this is the second person to join and the game can now start.
             //and game may now start
-            this.startGame(); //TESTING
+            this.startGame(); //TESTING when this line is commented
         }
     }
 
@@ -171,8 +181,9 @@ module.exports = class Game {
         this.resetEachPlayer("bet", 0);
         this.resetEachPlayer("hasBet", false);
         this.resetEachPlayer("hasFolded", false);
-        this.resetEachPlayer("hand", []);
+        this.resetEachPlayer("hand", (player) => (player.hand = new Array()));
         // this.resetEachPlayer("bet", 0);
+        this.emitToRoom("settleBets");
     }
 
     resetEachPlayer(key, value) {
@@ -181,7 +192,11 @@ module.exports = class Game {
             if (!player) {
                 return;
             }
-            player[key] = value;
+            if (typeof value === "function") {
+                value(player);
+            } else {
+                player[key] = value;
+            }
         });
     }
 
@@ -212,6 +227,7 @@ module.exports = class Game {
         this.state = 2; //hands are dealt - new players must wait
         //start dealing
         this.settleBets();
+        await waitFor(1000);
         //determine big and small blind
         await this.determineDealerBigSmall();
         //ensure we got'em all
@@ -262,6 +278,7 @@ module.exports = class Game {
     }
 
     emitNextPlayerToBet() {
+        console.log("nextPositionToBet");
         const currentBetSize = this.bet.biggestBet;
         const player = this.bettersTurn; //this.positions[this.bettersTurn];
         if (!player) {
@@ -288,7 +305,20 @@ module.exports = class Game {
             this.emitGameStateUpdate();
 
             this.handlePlayerOutOfTime();
+            clearInterval(this.hasLeftChecker);
         }, 1000 * this.allowedBetTime);
+
+        //check every second if someone left and only one person is left
+        this.hasLeftChecker = setInterval(() => {
+            console.log(this.players);
+            const playersCount = Object.keys(this.players).length;
+            if (playersCount <= 1) {
+                //stop timer!
+                clearInterval(this.hasLeftChecker);
+
+                this.nextPositionToBet();
+            }
+        }, 1000);
     }
 
     dealCardsToPlayers(positionsToDeal) {
@@ -350,6 +380,10 @@ module.exports = class Game {
     }
 
     handleBigBlind() {
+        if (this.smallBlind === undefined) {
+            console.error("HOW to handle this??  someone just left");
+            return;
+        }
         this.bigBlind = this.findFirstAvailablePosition({
             startingPos: this.smallBlind.position + 1,
             isEmpty: false,
@@ -385,7 +419,10 @@ module.exports = class Game {
             this.bet.biggestBet = player.bet;
         }
 
-        // this.emitToRoom("playerBet", { position: position, bet: betSize });
+        this.emitToRoom("playerBet", {
+            position: player.position,
+            bet: betSize,
+        });
         this.emitToRoom("chipBalance", {
             position: player.position,
             chips: player.chips,
@@ -440,6 +477,8 @@ module.exports = class Game {
 
     async nextPositionToBet() {
         clearTimeout(this.betTime);
+        clearInterval(this.hasLeftChecker);
+
         const lastBetter = this.bettersTurn;
         if (!this.positionsToBet.length) {
             return this.endGame();
@@ -496,9 +535,7 @@ module.exports = class Game {
             if (nextRoundState > totalRounds - 1) {
                 //SHOWDOWN TIME!!!
                 const winner = this.pokerGame.determineWinner();
-                this.emitToRoom("playerWins", {
-                    winner,
-                });
+                this.emitToRoom("playerWins", winner);
                 await this.waitFor(3000);
                 this.startGame();
                 // throw new Error("TODO SHOWDOWN");
@@ -598,7 +635,8 @@ module.exports = class Game {
             this.positionsToBet = slicedArray;
         } else {
             console.log("Number not found in the array.");
-            throw Error("Cant find this position in positionsToBet");
+            // throw Error("Cant find this position in positionsToBet");
+            return console.error("Cant find this position in positionsToBet");
         }
     }
 
@@ -624,6 +662,7 @@ module.exports = class Game {
             if (isEmpty && !player) {
                 //this position is empty
                 if (update) {
+                    throw Error("What are you doing?");
                     update(player);
                 }
                 return position;

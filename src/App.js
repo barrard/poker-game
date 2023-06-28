@@ -96,7 +96,7 @@ function App(props) {
 
             mySocket.on("gameState", setGameState);
 
-            mySocket.on("yourHand", setCurrentHand);
+            // mySocket.on("yourHand", setCurrentHand);
 
             mySocket.on("error", setErrMsg);
 

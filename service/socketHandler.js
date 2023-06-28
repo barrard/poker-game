@@ -172,6 +172,22 @@ module.exports = (io) => {
 
         // ~~~~~~~~    TESTS!!!  ~~~~~~~~
 
+        socket.on("TESTshowDown", () => {
+            const roomId = getRoomId(socket);
+            const game = gamesManager.getGame(roomId);
+            if (!game) return;
+            game.emitToRoom("showDown", [
+                {
+                    card1: "2_of_clubs",
+                    card2: "3_of_clubs",
+                },
+                {
+                    card1: "4_of_clubs",
+                    card2: "5_of_clubs",
+                },
+            ]);
+        });
+
         socket.on("testMyTurn", () => {
             //user wants to join this game
             // leaveGame(socket, gameId);

@@ -89,8 +89,12 @@ export function Board(props = {}) {
             pixiGame.addPlayer(player);
         });
 
-        mySocket.on("removePlayer", (player) => {
-            pixiGame.removePlayer(player);
+        mySocket.on("removePlayer", (position) => {
+            handleEventsLog({
+                color: "tomato",
+                msg: `Player ${position} has left`,
+            });
+            pixiGame.removePlayer(position);
         });
 
         mySocket.on("yourHand", (hand) => {
@@ -105,8 +109,8 @@ export function Board(props = {}) {
             pixiGame.playersBettingTurn({ positionsTurn, toCall });
         });
 
-        mySocket.on("chipBalance", ({ position, chips }) => {
-            pixiGame.chipBalance({ position, chips });
+        mySocket.on("chipBalance", (chipBalanceData) => {
+            pixiGame.chipBalance(chipBalanceData);
         });
 
         mySocket.on("playerCheck", ({ position }) => {
@@ -145,6 +149,7 @@ export function Board(props = {}) {
             handleEventsLog({
                 color: "yellow",
                 msg: `Flop ${flop}`,
+                text: "black",
             });
             flop = flop.map((card) => convertCardToFile(card));
             pixiGame.dealFlop(flop);
@@ -194,8 +199,26 @@ export function Board(props = {}) {
                 color: "#098f20",
                 msg: `Player ${position} bet ${bet}`,
             });
-            debugger;
+
             pixiGame.playerBet({ position, bet });
+        });
+
+        mySocket.on("settleBets", () => {
+            handleEventsLog({
+                color: "aquamari",
+                msg: `Get ready for the game to start!`,
+            });
+
+            pixiGame.settleBets();
+        });
+
+        mySocket.on("showDown", (cards) => {
+            handleEventsLog({
+                color: "green",
+                msg: `The Showdown`,
+            });
+
+            pixiGame.showDown(cards);
         });
 
         return () => {
@@ -217,10 +240,13 @@ export function Board(props = {}) {
             mySocket.off("setBigBlindChip");
             mySocket.off("setSmallBlindChip");
             mySocket.off("playerBet");
+            mySocket.off("settleBets");
+            mySocket.off("showDown");
 
+            setEventLogs([]);
+            pixiGame.destroy();
             pixieAppRef.current.destroy(true, true);
             pixieAppRef.current = null;
-            pixiGame.destroy();
             setPixiGame(false);
             mySocket.emit("leaveGame", gameIdRef.current);
         };
@@ -233,10 +259,14 @@ export function Board(props = {}) {
     function bet5() {
         pixiGame.betCheckFold(0, { bet: 5 });
     }
-    function runTest() {
+    function testFlop() {
         // alert("works");
         // pixiGame.playersBettingTurn(0);
         pixiGame.dealFlop(["5_of_spades", "3_of_hearts", "king_of_diamonds"]);
+    }
+
+    function testDeal() {
+        pixiGame.testDeal();
     }
 
     function myTurn() {
@@ -273,76 +303,33 @@ export function Board(props = {}) {
         });
     }
 
+    function testSettleBets() {
+        pixiGame.settleBets();
+    }
+    function testShowDown() {
+        // pixiGame.testShowDown();
+        // pixiGame.showDown();
+        mySocket.emit("TESTshowDown");
+    }
+
     if (!gameState.players || !Object.keys(gameState.players)?.length)
         return <>Waiting for players</>;
 
     return (
         <BoardContainer>
             <TestButtonsContainer>
-                <button
-                    onClick={() => {
-                        testFold();
-                    }}
-                >
-                    Test FOLD
-                </button>{" "}
-                <button
-                    onClick={() => {
-                        testBet();
-                    }}
-                >
-                    Test Bet BB
-                </button>
-                <button
-                    onClick={() => {
-                        setBB();
-                    }}
-                >
-                    Set BB
-                </button>
-                <button
-                    onClick={() => {
-                        setSB();
-                    }}
-                >
-                    Set sb
-                </button>{" "}
-                <button
-                    onClick={() => {
-                        setDealer();
-                    }}
-                >
-                    Set Dealer
-                </button>
-                <button
-                    onClick={() => {
-                        myTurn();
-                    }}
-                >
-                    My Turn
-                </button>
-                <button
-                    onClick={() => {
-                        endTurn();
-                    }}
-                >
-                    end Turn
-                </button>
-                <button
-                    onClick={() => {
-                        bet5();
-                    }}
-                >
-                    BET5
-                </button>
-                <button
-                    onClick={() => {
-                        runTest();
-                    }}
-                >
-                    RUN TEST
-                </button>
-                gogo?
+                <TestBtn fn={testShowDown} text="TEST showdown" />
+                <TestBtn fn={testSettleBets} text="TEST settleBets" />
+                <TestBtn fn={testFold} text="Test FOLD" />
+                <TestBtn fn={testBet} text="Test Bet BB" />
+                <TestBtn fn={setBB} text="Set BB" />
+                <TestBtn fn={setSB} text="Set sb" />
+                <TestBtn fn={setDealer} text="Set Dealer" />
+                <TestBtn fn={myTurn} text="My Turn" />
+                <TestBtn fn={endTurn} text="end Turn" />
+                <TestBtn fn={bet5} text="BET5" />
+                <TestBtn fn={testFlop} text="TEST Flop" />
+                <TestBtn fn={testDeal} text="TEST Deal" />
             </TestButtonsContainer>
             {/* Events logger */}
 
@@ -351,33 +338,45 @@ export function Board(props = {}) {
     );
 }
 
-function PlayerTimer() {
-    const [arcEndAngle, setArcEndAngle] = useState(Math.PI * 2); // Initial end angle
-
-    useEffect(() => {
-        const interval = setInterval(() => {
-            setArcEndAngle((prevAngle) => {
-                if (prevAngle <= 0) clearInterval(interval);
-                return prevAngle - 0.41;
-            }); // Update the end angle every interval
-        }, 1000); // Interval duration in milliseconds
-
-        return () => {
-            clearInterval(interval); // Clear the interval on component unmount
-        };
-    }, []);
-
-    const playerTimer = (g) => {
-        g.clear();
-
-        g.lineStyle(8, 0x33f0ff, 0.2);
-        g.arc(0, 0, 60, 0, arcEndAngle, false);
-
-        g.endFill();
-    };
-
-    return <Graphics anchor={0.5} draw={playerTimer} />;
+function TestBtn({ fn, text }) {
+    return (
+        <button
+            onClick={() => {
+                fn();
+            }}
+        >
+            {text}
+        </button>
+    );
 }
+
+// function PlayerTimer() {
+//     const [arcEndAngle, setArcEndAngle] = useState(Math.PI * 2); // Initial end angle
+
+//     useEffect(() => {
+//         const interval = setInterval(() => {
+//             setArcEndAngle((prevAngle) => {
+//                 if (prevAngle <= 0) clearInterval(interval);
+//                 return prevAngle - 0.41;
+//             }); // Update the end angle every interval
+//         }, 1000); // Interval duration in milliseconds
+
+//         return () => {
+//             clearInterval(interval); // Clear the interval on component unmount
+//         };
+//     }, []);
+
+//     const playerTimer = (g) => {
+//         g.clear();
+
+//         g.lineStyle(8, 0x33f0ff, 0.2);
+//         g.arc(0, 0, 60, 0, arcEndAngle, false);
+
+//         g.endFill();
+//     };
+
+//     return <Graphics anchor={0.5} draw={playerTimer} />;
+// }
 
 function BetButton(props) {
     return <Button x={200} y={30} text="BET" textColor="white" />;
