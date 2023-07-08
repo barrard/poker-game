@@ -78,6 +78,7 @@ export const Event = styled.div`
     padding: 0.3em;
     margin: 0.1em;
     border-radius: 5px;
+    color: ${({ txtColor }) => txtColor};
 
     /* border: 2px solid red; */
     /* position: absolute; */

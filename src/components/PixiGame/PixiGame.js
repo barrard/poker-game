@@ -50,6 +50,7 @@ export default class PixiGame {
 
         this.mainContainer = new Container();
         this.overlayContainer = new Container();
+        this.cardContainer = new Container();
         this.playerContainer = new Container();
         // this.mainContainer.scale.x = 0.25;
         // this.mainContainer.scale.y = 0.25;
@@ -62,6 +63,8 @@ export default class PixiGame {
         this.flop = [];
         this.allCardSprites = [];
 
+        this.playerControls = {};
+
         this.init();
     }
     async init() {
@@ -72,6 +75,7 @@ export default class PixiGame {
         this.drawPlayers();
         this.drawDealerBlindMarkers();
         this.mainContainer.addChild(this.playerContainer);
+        this.mainContainer.addChild(this.cardContainer);
         this.mainContainer.addChild(this.overlayContainer);
         this.pixiApp.stage.addChild(this.mainContainer);
         this.mySocket.emit("hasJoined", this.gameState.id);
@@ -82,10 +86,18 @@ export default class PixiGame {
         //remove all the cards on the table.
         console.log(this);
         this.allCardSprites.forEach((card) => {
-            this.mainContainer.removeChild(card.container);
+            this.cardContainer.removeChild(card.container);
         });
         this.allCardSprites = [];
         this.allBetChipSprites = [];
+        Object.keys(this.playerSprites).forEach((position) => {
+            const player = this.playerSprites[position];
+            player.cardSprites = [];
+            player.endTurn();
+            // if (player.betTimerAnimation) {
+            //     player?.killBetTimerAnimation();
+            // }
+        });
     }
     showDown(cards) {
         console.log("showdown");
@@ -95,6 +107,7 @@ export default class PixiGame {
         console.log(cards);
 
         cards.forEach((card, i) => {
+            if (!card) return;
             const mappedPosition = this.seatPositionMap[i];
             const player = this.playerSprites[mappedPosition];
             const cardSprites = player.cardSprites;
@@ -310,7 +323,15 @@ export default class PixiGame {
 
             seatGfx.clear();
             seatGfx.beginFill(0xffffff, 0.1);
-            seatGfx.drawRoundedRect(-25, -25, 50, 50, 5);
+            const playerSeatWidth = 75 * this.globalScale;
+            const borderRadius = 5 * this.globalScale;
+            seatGfx.drawRoundedRect(
+                -playerSeatWidth / 2,
+                -playerSeatWidth / 2,
+                playerSeatWidth,
+                playerSeatWidth,
+                borderRadius
+            );
             //draw chip area
             const chipCoords = pos.chipCoords;
             if (!chipCoords) return;
@@ -318,8 +339,16 @@ export default class PixiGame {
             this.mainContainer.addChild(chipAreaGfx);
             chipAreaGfx.position.set(chipCoords.x, chipCoords.y);
             chipAreaGfx.clear();
-            chipAreaGfx.beginFill(0xeeeeee, 0.3);
-            chipAreaGfx.drawRoundedRect(-15, -15, 30, 30, 5);
+            chipAreaGfx.beginFill(0xeeeeee, 0.1);
+            const chipAreaWidth = 55 * this.globalScale;
+
+            chipAreaGfx.drawRoundedRect(
+                -chipAreaWidth / 2,
+                -chipAreaWidth / 2,
+                chipAreaWidth,
+                chipAreaWidth,
+                borderRadius
+            );
         });
 
         //draw Board card positions
@@ -341,6 +370,118 @@ export default class PixiGame {
 
         //draw burn pile location
         this.drawBurnPileLoc();
+        this.drawPlayerControls();
+    }
+
+    drawPlayerControls() {
+        //container to hold it all
+        this.playerControlsContainer = new Container();
+        // this.playerControlsContainer.anchor.set(0.5);
+        const location = this.positionLocations[this.YOUR_POSITION];
+        const x = location.x - 120 * this.globalScale;
+        const y = location.y + 80 * this.globalScale;
+
+        this.playerControlsContainer.position.x = x;
+        this.playerControlsContainer.position.y = y;
+        const width = 100 * this.globalScale;
+        const height = 60 * this.globalScale;
+        const radius = 10 * this.globalScale;
+        //need a Check Button
+        this.makeButton({
+            btnName: "check",
+            color: 0x2671ad,
+            text: "Check",
+            onClick: () => {
+                alert("check");
+            },
+            width: width - 5 * this.globalScale,
+            height,
+            radius,
+            x: 0,
+        });
+        //need a Fold Button
+        this.makeButton({
+            btnName: "fold",
+            color: 0xd12a0d,
+            text: "Fold",
+            onClick: () => {
+                alert("fold");
+            },
+            width: width - 5 * this.globalScale,
+            height,
+            radius,
+            x: width,
+        });
+
+        //need a Bet Button
+
+        //need a Call Button
+        this.makeButton({
+            btnName: "call",
+            color: 0x1fcfa6,
+            text: "Call",
+            onClick: () => {
+                alert("call");
+            },
+            width: width - 5 * this.globalScale,
+            height,
+            radius,
+            x: width * 2,
+        });
+
+        //need a Raise Button
+        this.makeButton({
+            btnName: "raise",
+            color: 0xcfa61f,
+            text: "Raise",
+            onClick: () => {
+                alert("raise");
+            },
+            width: width - 5 * this.globalScale,
+            height,
+            radius,
+            x: width * 3,
+        });
+
+        this.mainContainer.addChild(this.playerControlsContainer);
+    }
+    makeButton(opts) {
+        const { btnName, color, text, onClickFn, width, height, radius, x } =
+            opts;
+        console.log("make btn");
+        console.log(opts);
+        const btnContainer = new Container();
+
+        const btnGfx = new Graphics();
+        btnGfx.interactive = true;
+        btnGfx.buttonMode = true;
+        this.playerControls[btnName] = btnGfx;
+        btnGfx.beginFill(color);
+
+        btnGfx.drawRoundedRect(0, 0, width, height, radius);
+        btnGfx.endFill();
+        btnContainer.position.x = x;
+        btnContainer.addChild(btnGfx);
+
+        const textStyle = new TextStyle({
+            fontFamily: "Arial",
+            fill: "white",
+            fontSize: this.width * 0.015,
+            fontWeight: "bold",
+            align: "center",
+        });
+
+        const btnText = new Text(text, textStyle);
+
+        // this.btnText = btnText;
+        btnText.anchor.x = 0.5;
+        btnText.anchor.y = 0.5;
+        btnText.position.y = height / 2; //y + globalScale * 50; // -sprite.sprite.height;
+        btnText.position.x = width / 2; // // -sprite.sprite.width / 2;
+        // btnText.text = "ttt";
+        btnContainer.addChild(btnText);
+
+        this.playerControlsContainer.addChild(btnContainer);
     }
 
     drawPotLoc() {
@@ -355,6 +496,7 @@ export default class PixiGame {
         this.potGfx.clear();
         this.potGfx.beginFill(0xffffff, 0.1);
         this.potGfx.drawRoundedRect(-width / 2, -height / 2, width, height, 5);
+        this.potGfx.endFill();
 
         const textStyle = new TextStyle({
             fontFamily: "Arial",
@@ -396,7 +538,7 @@ export default class PixiGame {
     dealCards(playerPositions) {
         this.allCardSprites = [];
         playerPositions =
-            playerPositions ||
+            playerPositions || //this is only meant to facilitate the TET deal function
             Object.values(this.gameState.players).map((player) => ({
                 [player.position]: player,
             }));
@@ -439,21 +581,17 @@ export default class PixiGame {
 
     dealTurn(turn) {
         console.log(turn);
-        debugger;
         this.turn = turn;
         let delayIndex = 0;
         let position = 3;
-        debugger;
         this.dealBoardCard(position, delayIndex, turn);
     }
 
     dealRiver(river) {
         console.log(river);
-        debugger;
         this.river = river;
         let delayIndex = 0;
         let position = 4;
-        debugger;
         this.dealBoardCard(position, delayIndex, river);
     }
 
@@ -615,7 +753,7 @@ export default class PixiGame {
         this.playerCards = [card1File, card2File];
     }
 
-    betCheckFold(position, data) {
+    betCheckFold(data) {
         const player = this.playerSprites[this.YOUR_POSITION];
 
         player.betCheckFold(data);
@@ -628,7 +766,7 @@ export default class PixiGame {
         if (positionsTurn === this.YOU.position) {
             this.handleEventsLog({
                 color: "blue",
-                msg: `You turn to call ${toCall}`,
+                msg: `Your turn to call ${toCall}`,
             });
         } else {
             this.handleEventsLog({

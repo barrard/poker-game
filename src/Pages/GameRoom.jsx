@@ -72,7 +72,11 @@ export default function GameRoom(props) {
                     <EventsLog ref={eventsLogRef}>
                         {eventLogs.map((event, i) => {
                             return (
-                                <Event key={i} color={event.color}>
+                                <Event
+                                    key={i}
+                                    txtColor={event.txtColor || "white"}
+                                    color={event.color}
+                                >
                                     {i + 1}: {event.msg}
                                 </Event>
                             );
@@ -82,26 +86,6 @@ export default function GameRoom(props) {
             </Row>
             <Row>
                 <div>
-                    {/* {gameState?.state === 0 && (
-                        <Alert>Waiting for more players</Alert>
-                    )}
-                    {gameState?.state === 1 && (
-                        <>
-                            <Alert color={"#333"} background={"lawngreen"}>
-                                Ready for game to start
-                            </Alert>
-                        </>
-                    )} */}
-                    {/* {gameState?.state === 2 && <Alert>Dealing Hands</Alert>}
-                    {gameState?.state === 3 && <Alert>Blind Betting</Alert>}
-                    {gameState?.state === 4 && <Alert>Dealing Flop</Alert>}
-                    {gameState?.state === 5 && <Alert>Flop Betting</Alert>}
-                    {gameState?.state === 6 && <Alert>Dealing Turn</Alert>}
-                    {gameState?.state === 7 && <Alert>Turn Betting</Alert>}
-                    {gameState?.state === 8 && <Alert>Dealing River</Alert>}
-                    {gameState?.state === 9 && <Alert>River Betting</Alert>}
-                    {gameState?.state === 10 && <Alert>Showdown</Alert>} */}
-
                     <BoardContainer>
                         <Board gameId={gameId} />
                     </BoardContainer>

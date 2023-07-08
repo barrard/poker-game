@@ -60,32 +60,26 @@ export default function GameList(props) {
                 .sort((a, b) => gameList[a].state - gameList[b].state)
                 .map((gameId, i) => {
                     let game = gameList[gameId];
-                    let showdown = game.state === 10;
-                    let bettingRiver = game.state === 9;
-                    let dealingRiver = game.state === 8;
-                    let bettingTurn = game.state === 7;
-                    let dealingTurn = game.state === 6;
-                    let bettingFlop = game.state === 5;
-                    let dealingFlop = game.state === 4;
-                    let bettingBlind = game.state === 3;
-                    let dealingBlind = game.state === 2;
-                    let gameInProgress = game.state === 1;
                     let needsMorePlayers = game.state === 0;
+                    let gameIsStarting = game.state === 1;
+                    let dealingHands = game.state === 2;
+                    let bettingBlind = game.state === 3;
+                    let bettingFlop = game.state === 4;
+                    let bettingTurn = game.state === 5;
+                    let bettingRiver = game.state === 6;
+                    let showdown = game.state === 7;
 
                     /**
                      * Poker game states
                      * 0 needs more players
-                     * 1 game in progress
-                     * 2 dealing blind
-                     *    --who is big blind and small blind
-                     * 3 betting blind
-                     * 4 dealing flop
-                     * 5 betting flop
-                     * 6 dealing turn
-                     * 7 betting turn
-                     * 8 dealing river
-                     * 9 betting river
-                     * 10 showdown
+                     * 1 game is starting
+                     * 2 hands
+
+                    * 3 betting blind
+                     * 4 betting flop
+                     * 5 betting turn
+                     * 6 betting river
+                     * 7 showdown
                      *
                      */
 
@@ -93,43 +87,55 @@ export default function GameList(props) {
                         <div key={gameId}>
                             <h4>{`Game #${i + 1} ${gameId}`}</h4>
 
-                            {(needsMorePlayers || gameInProgress) && (
-                                <>
-                                    <Alert background="lightblue">
-                                        {`Players Ready:
+                            <Alert background="lightblue">
+                                {`Players:
                                 ${
                                     Object.keys(gameList[gameId].players).length
                                 }`}
-                                    </Alert>
+                            </Alert>
 
-                                    {needsMorePlayers && (
-                                        <Alert>
-                                            Waiting for more players...
-                                        </Alert>
-                                    )}
-
-                                    {gameInProgress && (
-                                        <Alert background="lightblue">
-                                            Game In Progress...
-                                        </Alert>
-                                    )}
-                                    <JoinGameBtn
-                                        onClick={() => {
-                                            mySocket.emit("joinGame", gameId);
-                                        }}
-                                    >
-                                        JOIN
-                                    </JoinGameBtn>
-                                </>
+                            {needsMorePlayers && (
+                                <Alert background="#eb4f34">
+                                    Waiting for more players...
+                                </Alert>
                             )}
 
-                            {dealingBlind && (
-                                <Alert background="lightblue">
-                                    Dealing Blind
+                            {gameIsStarting && (
+                                <Alert background="#eb9c34">
+                                    Game In Progress...
+                                </Alert>
+                            )}
+
+                            {dealingHands && (
+                                <Alert background="#8fb828">
+                                    Dealing Players
                                 </Alert>
                             )}
                             {bettingBlind && (
-                                <Alert background="tomato">{`Dealing Blind`}</Alert>
+                                <Alert background="#2bc288">{`Betting Blind`}</Alert>
+                            )}
+                            {bettingFlop && (
+                                <Alert background="#34c3eb">{`Betting Flop`}</Alert>
+                            )}
+                            {bettingTurn && (
+                                <Alert background="#3434eb">{`Betting Turn`}</Alert>
+                            )}
+                            {bettingRiver && (
+                                <Alert background="#b434eb">{`Betting River`}</Alert>
+                            )}
+                            {showdown && (
+                                <Alert background="#eb3468">{`Showdown`}</Alert>
+                            )}
+
+                            {Object.keys(gameList[gameId].players).length <
+                                8 && (
+                                <JoinGameBtn
+                                    onClick={() => {
+                                        mySocket.emit("joinGame", gameId);
+                                    }}
+                                >
+                                    JOIN
+                                </JoinGameBtn>
                             )}
                         </div>
                     );

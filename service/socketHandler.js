@@ -61,7 +61,7 @@ module.exports = (io) => {
             leaveGame(socket, gameId);
         });
 
-        //DEPRECATED
+        //DEPRECATED - i think
         socket.on("hasLeft", (position) => {
             //a player has emitted a hasLeft event and passed along their position.
             const roomId = getRoomId(socket);
@@ -131,9 +131,9 @@ module.exports = (io) => {
                     } else if (playersBet < needsToBet) {
                         //possible side game?
                         //players bet should be more than 0, and equal to all their remaining chips
-                        if (playersBet === 0) {
+                        if (playersBet === 0 || playersBet < player.chips) {
                             return socket.emit("error", {
-                                msg: "Almost had a side bet",
+                                msg: "Invalid bet",
                             });
                         } else {
                             //TODO
@@ -178,12 +178,12 @@ module.exports = (io) => {
             if (!game) return;
             game.emitToRoom("showDown", [
                 {
-                    card1: "2_of_clubs",
-                    card2: "3_of_clubs",
+                    card1: "2C",
+                    card2: "3C",
                 },
                 {
-                    card1: "4_of_clubs",
-                    card2: "5_of_clubs",
+                    card1: "4C",
+                    card2: "5C",
                 },
             ]);
         });
@@ -395,7 +395,7 @@ function removeSocket(socket, gameId, user) {
     let game = gamesManager.getGame(gameId);
     //does this game still know about the user?
     //check players, positions,
-    console.log(game);
+
     const gameUser = game?.players?.[user.id];
     const gamePosition = game?.positions?.[user.position];
     const gameSocket = game?.sockets?.[user.position];
@@ -416,9 +416,6 @@ function leaveGame(socket, gameId) {
     let game = gamesManager.getGame(gameId);
     if (!game) {
         if (socket.connected) {
-            //TODO this should be requested and not sent automatically
-            // joinRoom(socket, waitingRoom);
-            // socket.emit("gameList", gamesManager.getGamesState());
             socket.emit("error", { msg: "Game does not exist" });
         }
         return;

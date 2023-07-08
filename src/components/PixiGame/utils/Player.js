@@ -38,16 +38,16 @@ export default class Player {
         this.playerTimerGfx = playerTimerGfx;
         container.addChild(playerTimerGfx);
 
-        const playerSelectGfx = new Graphics();
-        this.playerSelectGfx = playerSelectGfx;
-        container.addChild(playerSelectGfx);
+        this.playerSelectGfx = new Graphics();
+        container.addChild(this.playerSelectGfx);
 
         //dealer has no chips
         // if (this.player.chips) {
         const textStyle = new TextStyle({
             fontFamily: "Arial",
             fill: "white",
-            fontSize: this.pixiGame.width * 0.012,
+
+            fontSize: this.pixiGame.width * 0.018,
             fontWeight: "bold",
             align: "center",
         });
@@ -113,17 +113,21 @@ export default class Player {
     startBetTimer() {
         this.playerSelectGfx.clear();
         this.playerTimerGfx.clear();
-
+        console.log(this.globalScale);
         // Set the line style and fill color
         this.playerSelectGfx.lineStyle({
-            width: 5,
+            width: 5 * this.pixiGame.globalScale,
             color: 0xff0000,
         }); // Set line thickness and color
-        this.playerTimerGfx.lineStyle(5, 0xcccccc, 0.5);
+        this.playerTimerGfx.lineStyle(
+            5 * this.pixiGame.globalScale,
+            0xcccccc,
+            0.5
+        );
         // Draw an arc
         const x = 0; // X-coordinate of the center point
         const y = 0; // Y-coordinate of the center point
-        const radius = 50; // Radius of the arc
+        const radius = 40 * this.pixiGame.globalScale * 2; // Radius of the arc
         const startAngle = 0; // Starting angle in radians
         const endAngle = Math.PI * 2; // Ending angle in radians
         const anticlockwise = false; // Clockwise (false) or anticlockwise (true)
@@ -165,7 +169,7 @@ export default class Player {
                 this.playerSelectGfx.clear();
                 // this.playerSelectGfx.beginFill(0xff0000);
                 this.playerSelectGfx.lineStyle({
-                    width: 5,
+                    width: 5 * this.pixiGame.globalScale,
                     color: 0xff0000,
                 });
                 this.playerSelectGfx.arc(
@@ -242,11 +246,16 @@ export default class Player {
 
     playerSelect(color) {
         this.errorGfx.clear();
-        this.errorGfx.lineStyle(5, color, 0.5);
+        this.errorGfx.lineStyle(
+            5 * this.pixiGame.globalScale,
+
+            color,
+            0.5
+        );
         // Draw an arc
         const x = 0; // X-coordinate of the center point
         const y = 0; // Y-coordinate of the center point
-        const radius = 50; // Radius of the arc
+        const radius = 40 * this.pixiGame.globalScale * 2; // Radius of the arc
         const startAngle = 0; // Starting angle in radians
         const endAngle = Math.PI * 2; // Ending angle in radians
         const anticlockwise = false; // Clockwise (false) or anticlockwise (true)
@@ -268,7 +277,6 @@ export default class Player {
     }
 
     betCheckFold(data) {
-        debugger;
         this.pixiGame.mySocket.emit("betCheckFold", data);
     }
 

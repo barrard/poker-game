@@ -83,6 +83,7 @@ export function Board(props = {}) {
         setPixiGame(pixiGame);
 
         mySocket.on("cardsDealt", (playerPositions) => {
+            debugger;
             pixiGame.dealCards(playerPositions);
         });
         mySocket.on("addPlayer", (player) => {
@@ -117,6 +118,7 @@ export function Board(props = {}) {
             handleEventsLog({
                 color: "white",
                 msg: `Player ${position} checks`,
+                txtColor: "black",
             });
             pixiGame.playerCheck({ position });
         });
@@ -149,7 +151,7 @@ export function Board(props = {}) {
             handleEventsLog({
                 color: "yellow",
                 msg: `Flop ${flop}`,
-                text: "black",
+                txtColor: "black",
             });
             flop = flop.map((card) => convertCardToFile(card));
             pixiGame.dealFlop(flop);
@@ -158,6 +160,7 @@ export function Board(props = {}) {
         mySocket.on("theTurn", ({ turn }) => {
             handleEventsLog({
                 color: "yellow",
+                txtColor: "black",
                 msg: `Turn ${turn}`,
             });
             turn = convertCardToFile(turn);
@@ -165,7 +168,11 @@ export function Board(props = {}) {
         });
 
         mySocket.on("theRiver", ({ river }) => {
-            handleEventsLog({ color: "yellow", msg: `River ${river}` });
+            handleEventsLog({
+                color: "yellow",
+                txtColor: "black",
+                msg: `River ${river}`,
+            });
             river = convertCardToFile(river);
             pixiGame.dealRiver(river);
         });
@@ -217,6 +224,14 @@ export function Board(props = {}) {
                 color: "green",
                 msg: `The Showdown`,
             });
+            cards.forEach((hand) => {
+                if (hand.card1) {
+                    hand.card1 = convertCardToFile(hand.card1);
+                }
+                if (hand.card2) {
+                    hand.card2 = convertCardToFile(hand.card2);
+                }
+            });
 
             pixiGame.showDown(cards);
         });
@@ -257,8 +272,15 @@ export function Board(props = {}) {
     }, [gameState]);
 
     function bet5() {
-        pixiGame.betCheckFold(0, { bet: 5 });
+        pixiGame.betCheckFold({ bet: 5 });
     }
+    function bet10() {
+        pixiGame.betCheckFold({ bet: 10 });
+    }
+    function check() {
+        pixiGame.betCheckFold({ check: true });
+    }
+
     function testFlop() {
         // alert("works");
         // pixiGame.playersBettingTurn(0);
@@ -328,6 +350,8 @@ export function Board(props = {}) {
                 <TestBtn fn={myTurn} text="My Turn" />
                 <TestBtn fn={endTurn} text="end Turn" />
                 <TestBtn fn={bet5} text="BET5" />
+                <TestBtn fn={bet10} text="BET10" />
+                <TestBtn fn={check} text="CHECK" />
                 <TestBtn fn={testFlop} text="TEST Flop" />
                 <TestBtn fn={testDeal} text="TEST Deal" />
             </TestButtonsContainer>

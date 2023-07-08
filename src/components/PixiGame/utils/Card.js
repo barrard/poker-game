@@ -33,9 +33,7 @@ export default class Card {
         this.isLargeCard = isYou || isBoardPosition !== undefined;
         this.isBoardPosition = isBoardPosition;
         const scale = this.isLargeCard ? 0.5 : 0.25;
-        const { x, y } = location;
-        this.x = this.isBoardPosition !== undefined ? x : x + 222 * scale;
-        this.y = y; ///+ 323; //* scale;
+
         this.dealerLocation = pixiGame.positionLocations["dealer"];
         this.location = location;
         this.pixiGame = pixiGame;
@@ -43,6 +41,12 @@ export default class Card {
         this.cardFaceDrawn = false;
         // this.card = card;
         this.delayIndex = delayIndex;
+        const { x, y } = location;
+        this.x =
+            this.isBoardPosition !== undefined
+                ? x
+                : x + 222 * scale * this.pixiGame.globalScale;
+        this.y = y; ///+ 323; //* scale;
         this.cardWidth = 222;
         this.cardHeight = 323;
         this.scale = scale;
@@ -82,7 +86,7 @@ export default class Card {
         this.container.scale.x = 0;
         this.container.scale.y = 0;
 
-        this.pixiGame.mainContainer.addChild(container);
+        this.pixiGame.cardContainer.addChild(container);
 
         console.log("drawCard");
         this.draw();
@@ -99,15 +103,16 @@ export default class Card {
             -this.height / 2 - padding,
             this.width + padding * 2,
             this.height + padding * 2,
-            5
+            this.isLargeCard ? 5 : 2.5
         );
+        this.cardGfx.endFill();
 
         const x =
             this.isBoardPosition !== undefined
                 ? this.x
                 : this.isCard1
-                ? this.x - this.width * 0.35
-                : this.x + this.width * 0.15;
+                ? this.x + this.width * 0.15
+                : this.x + this.width * 0.55;
         const y = this.y;
 
         this.timeline = this.pixiGame.gsap.to(this.container, {
@@ -128,8 +133,6 @@ export default class Card {
             ease: "power1.out",
             onComplete: this.isLargeCard ? this.flipCard.bind(this) : () => {},
         });
-
-        // this.pixiGame.allCardSprites.push(this.timeline);
     }
 
     turnFaceDown() {
@@ -141,31 +144,9 @@ export default class Card {
                     this.container.skew["_y"] <= Math.PI / 2 &&
                     !this.cardFaceDown
                 ) {
-                    console.log("remove face");
-
                     this.cardFaceDown = true;
-
-                    // const cardFile =
-                    //     this.isBoardPosition !== undefined
-                    //         ? this.cardValue
-                    //         : this.isCard1
-                    //         ? this.pixiGame.playerCards[0]
-                    //         : this.pixiGame.playerCards[1];
-
-                    // const textureUrl = `/img/cards/${cardFile}.png`;
-                    // const texture = await Assets.load(textureUrl);
-
-                    // this.cardFaceSprite = Sprite.from(texture);
-                    // this.cardFaceSprite.anchor.set(0.5);
-
-                    // this.cardFaceSprite.width = this.width;
-                    // this.cardFaceSprite.height = this.height;
                     this.container.addChild(this.cardBackSprite);
                     this.container.removeChild(this.cardFaceSprite);
-
-                    // this.cardFaceSprite.position.set(this.width, 0);
-
-                    // this.cardFaceSprite.skew.y = -Math.PI;
                 }
             },
         });
@@ -187,7 +168,7 @@ export default class Card {
         const cardFile = cardValue;
 
         console.log({ isCard1 });
-        this.location = location;
+        // this.location = location;
         this.timeline = this.pixiGame.gsap.timeline({
             onUpdate: async (v) => {
                 if (this.cardFaceDrawn) return;
