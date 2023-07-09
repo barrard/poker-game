@@ -83,7 +83,6 @@ export function Board(props = {}) {
         setPixiGame(pixiGame);
 
         mySocket.on("cardsDealt", (playerPositions) => {
-            debugger;
             pixiGame.dealCards(playerPositions);
         });
         mySocket.on("addPlayer", (player) => {
@@ -107,6 +106,18 @@ export function Board(props = {}) {
         });
 
         mySocket.on("playersBettingTurn", ({ positionsTurn, toCall }) => {
+            const biggestBet = pixiGame.bet;
+            const playerYou = pixiGame.gameState.players[user.id];
+            const { hasFolded, hasBet, bet, chips } = playerYou;
+            //have we already bet?
+            if (hasBet || hasFolded) {
+                //hide the controls
+            } else if (biggestBet === bet) {
+                // our options are check, or bet
+            } else if (biggestBet > bet) {
+                //our options are fold, call, raise
+            }
+            debugger;
             pixiGame.playersBettingTurn({ positionsTurn, toCall });
         });
 
@@ -269,6 +280,9 @@ export function Board(props = {}) {
 
     useEffect(() => {
         console.log(gameState);
+        if (pixiGame) {
+            pixiGame.gameState = gameState;
+        }
     }, [gameState]);
 
     function bet5() {
@@ -285,6 +299,17 @@ export function Board(props = {}) {
         // alert("works");
         // pixiGame.playersBettingTurn(0);
         pixiGame.dealFlop(["5_of_spades", "3_of_hearts", "king_of_diamonds"]);
+    }
+
+    function testHideControls() {
+        pixiGame.hidePlayerControls();
+    }
+    function testFoldCallRaiseControls() {
+        pixiGame.createFoldCallRaiseControls(20);
+    }
+
+    function testCheckBetControls() {
+        pixiGame.createCheckBetControls(20);
     }
 
     function testDeal() {
@@ -354,6 +379,15 @@ export function Board(props = {}) {
                 <TestBtn fn={check} text="CHECK" />
                 <TestBtn fn={testFlop} text="TEST Flop" />
                 <TestBtn fn={testDeal} text="TEST Deal" />
+                <TestBtn fn={testHideControls} text="testHideControls" />
+                <TestBtn
+                    fn={testFoldCallRaiseControls}
+                    text="testFoldCallRaiseControls"
+                />
+                <TestBtn
+                    fn={testCheckBetControls}
+                    text="testCheckBetControls"
+                />
             </TestButtonsContainer>
             {/* Events logger */}
 

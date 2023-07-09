@@ -378,15 +378,30 @@ export default class PixiGame {
         this.playerControlsContainer = new Container();
         // this.playerControlsContainer.anchor.set(0.5);
         const location = this.positionLocations[this.YOUR_POSITION];
-        const x = location.x - 120 * this.globalScale;
-        const y = location.y + 80 * this.globalScale;
+        const x = location.x - 220 * this.globalScale;
+        const y = location.y + 100 * this.globalScale;
 
         this.playerControlsContainer.position.x = x;
         this.playerControlsContainer.position.y = y;
-        const width = 100 * this.globalScale;
+
+        this.mainContainer.addChild(this.playerControlsContainer);
+    }
+
+    //hide controls
+    hidePlayerControls() {
+        Object.keys(this.playerControls).forEach((control) => {
+            const controlContainer = this.playerControls[control];
+            this.playerControlsContainer.removeChild(controlContainer);
+        });
+    }
+
+    //checkBet controls
+    createCheckBetControls(currentBet) {
+        this.hidePlayerControls();
+        const width = 120 * this.globalScale;
         const height = 60 * this.globalScale;
         const radius = 10 * this.globalScale;
-        //need a Check Button
+
         this.makeButton({
             btnName: "check",
             color: 0x2671ad,
@@ -399,6 +414,45 @@ export default class PixiGame {
             radius,
             x: 0,
         });
+
+        this.makeButton({
+            btnName: "bet",
+            color: 0xcfa61f,
+            text: "Bet",
+            onClick: () => {
+                alert("bet");
+            },
+            width: width - 5 * this.globalScale,
+            height,
+            radius,
+            x: width,
+            withIncDec: true,
+        });
+
+        //need a All In Button
+        this.makeButton({
+            btnName: "allIn",
+            color: 0x642196,
+            text: "All In",
+            onClick: () => {
+                alert("allIn");
+            },
+            width: width - 5 * this.globalScale,
+            height,
+            radius,
+            x: width * 2 + width / 2,
+        });
+    }
+
+    //foldCallRaise controls
+    createFoldCallRaiseControls(currentBet) {
+        this.hidePlayerControls();
+
+        const raise = currentBet * 2;
+        const width = 140 * this.globalScale;
+        const height = 60 * this.globalScale;
+        const radius = 10 * this.globalScale;
+
         //need a Fold Button
         this.makeButton({
             btnName: "fold",
@@ -410,58 +464,85 @@ export default class PixiGame {
             width: width - 5 * this.globalScale,
             height,
             radius,
-            x: width,
+            x: 0,
         });
-
-        //need a Bet Button
 
         //need a Call Button
         this.makeButton({
             btnName: "call",
             color: 0x1fcfa6,
-            text: "Call",
+            text: `Call ${currentBet}`,
             onClick: () => {
                 alert("call");
             },
             width: width - 5 * this.globalScale,
             height,
             radius,
-            x: width * 2,
+            x: width,
         });
 
         //need a Raise Button
         this.makeButton({
             btnName: "raise",
             color: 0xcfa61f,
-            text: "Raise",
+            text: `Raise ${raise}`,
             onClick: () => {
                 alert("raise");
             },
             width: width - 5 * this.globalScale,
             height,
             radius,
-            x: width * 3,
+            x: width * 2,
+            withIncDec: true,
         });
 
-        this.mainContainer.addChild(this.playerControlsContainer);
+        //need a All In Button
+        this.makeButton({
+            btnName: "allIn",
+            color: 0x642196,
+            text: "All In",
+            onClick: () => {
+                alert("allIn");
+            },
+            width: width - 5 * this.globalScale,
+            height,
+            radius,
+            x: width * 3 + width / 2,
+        });
     }
+
     makeButton(opts) {
-        const { btnName, color, text, onClickFn, width, height, radius, x } =
-            opts;
+        const {
+            btnName,
+            color,
+            text,
+            onClick,
+            width,
+            height,
+            radius,
+            x,
+            y,
+            withIncDec,
+        } = opts;
         console.log("make btn");
         console.log(opts);
         const btnContainer = new Container();
 
         const btnGfx = new Graphics();
-        btnGfx.interactive = true;
-        btnGfx.buttonMode = true;
-        this.playerControls[btnName] = btnGfx;
+        btnContainer.interactive = true;
+        btnContainer.buttonMode = true;
+        this.playerControls[btnName] = btnContainer;
         btnGfx.beginFill(color);
 
         btnGfx.drawRoundedRect(0, 0, width, height, radius);
         btnGfx.endFill();
         btnContainer.position.x = x;
+        if (y) {
+            btnContainer.position.y = y;
+        }
         btnContainer.addChild(btnGfx);
+        btnContainer.on("click", onClick);
+        btnContainer.on("tap", onClick);
 
         const textStyle = new TextStyle({
             fontFamily: "Arial",
@@ -480,6 +561,35 @@ export default class PixiGame {
         btnText.position.x = width / 2; // // -sprite.sprite.width / 2;
         // btnText.text = "ttt";
         btnContainer.addChild(btnText);
+        if (withIncDec) {
+            this.makeButton({
+                btnName: "inc",
+                color: 0x3aeb34,
+                text: "+",
+                onClick: () => {
+                    alert("inc");
+                },
+                width: width / 2 - 5 * this.globalScale,
+                height: height * 0.75,
+                radius,
+                x: x + width + 5 * this.globalScale,
+                y: -height * 0.25,
+            });
+
+            this.makeButton({
+                btnName: "dec",
+                color: 0xeb4634,
+                text: "-",
+                onClick: () => {
+                    alert("dec");
+                },
+                width: width / 2 - 5 * this.globalScale,
+                height: height * 0.75,
+                radius,
+                x: x + width + 5 * this.globalScale,
+                y: height / 2,
+            });
+        }
 
         this.playerControlsContainer.addChild(btnContainer);
     }
@@ -702,6 +812,7 @@ export default class PixiGame {
         const player = this.getPlayerSprite(position);
         player.setChipBalance(chips);
         this.setPotBalance(pot);
+        this.bet = bet;
     }
 
     playerCheck({ position }) {

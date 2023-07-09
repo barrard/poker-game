@@ -496,14 +496,11 @@ module.exports = class Game {
     }
 
     handlePlayerBet(player, bet) {
-        // const player = this.positions[playerPosition];
         if (bet > player.chips) {
             return console.error("How are you betting more than you got");
         }
         player.hasBet = true;
         this.updateBetAndPot(player, bet);
-
-        // this.nextPositionToBet();
     }
 
     handlePlayerCheck(playerPosition) {

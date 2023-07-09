@@ -51,7 +51,7 @@ export default function GameRoom(props) {
     if (!gameState) {
         return <>....Connecting to {match.params.gameId}</>;
     }
-    console.log("Game room render", gameState.state);
+
     return (
         <Container fluid className="g-0">
             <Row>
@@ -59,7 +59,6 @@ export default function GameRoom(props) {
                     <Button
                         className="btn btn-primary"
                         onClick={() => {
-                            // mySocket.emit("leaveGame", gameId);
                             history.push("/");
                         }}
                     >{`< HOME`}</Button>
@@ -68,7 +67,6 @@ export default function GameRoom(props) {
                     <div>Game State - {gameState.state}</div>
                 </Col>
                 <Col className="border g-0" sm="">
-                    {/* <p>Events</p> */}
                     <EventsLog ref={eventsLogRef}>
                         {eventLogs.map((event, i) => {
                             return (
