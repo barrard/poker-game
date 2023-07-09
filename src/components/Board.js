@@ -33,7 +33,8 @@ export function Board(props = {}) {
     const { user, mySocket, currentHand, gameState, setEventLogs } =
         useContext(MainContext);
 
-    // console.log({ gameState, user, tableHeight, tableWidth });
+    const [currentBet, setCurrentBet] = useState(0);
+    const [raise, setRaise] = useState(0);
 
     const gameIdRef = useRef(gameId);
     const appRef = useRef(null);
@@ -106,18 +107,43 @@ export function Board(props = {}) {
         });
 
         mySocket.on("playersBettingTurn", ({ positionsTurn, toCall }) => {
+            //TODO make a function called setYouBetControls
+            if (!pixiGame) return;
             const biggestBet = pixiGame.bet;
             const playerYou = pixiGame.gameState.players[user.id];
             const { hasFolded, hasBet, bet, chips } = playerYou;
+            const needsToBet = bet < biggestBet;
             //have we already bet?
-            if (hasBet || hasFolded) {
+            if ((hasBet || hasFolded) && !needsToBet) {
                 //hide the controls
+                pixiGame.hidePlayerControls();
             } else if (biggestBet === bet) {
                 // our options are check, or bet
+                setCurrentBet(() => {
+                    pixiGame.createCheckBetControls({
+                        currentBet: biggestBet,
+                        setCurrentBet,
+                    });
+                    return biggestBet;
+                });
             } else if (biggestBet > bet) {
-                //our options are fold, call, raise
+                setCurrentBet(() => {
+                    const currentBetToYou = biggestBet - bet;
+                    debugger;
+                    setRaise(() => {
+                        const toRaise = currentBetToYou * 2;
+                        pixiGame.createFoldCallRaiseControls({
+                            currentBet: currentBetToYou,
+                            setCurrentBet,
+                            setRaise,
+                            raise: toRaise,
+                        });
+                        return toRaise;
+                    });
+                    return currentBetToYou;
+                });
             }
-            debugger;
+
             pixiGame.playersBettingTurn({ positionsTurn, toCall });
         });
 
@@ -279,6 +305,96 @@ export function Board(props = {}) {
     }, []);
 
     useEffect(() => {
+        if (!pixiGame) return;
+        console.log(raise);
+        pixiGame.createFoldCallRaiseControls({
+            currentBet,
+            setCurrentBet,
+            setRaise,
+            raise,
+        });
+    }, [raise]);
+
+    useEffect(() => {
+        console.log(raise);
+
+        //TODO This is that same as line 112
+        if (!pixiGame) return;
+        const biggestBet = pixiGame.bet;
+        const playerYou = pixiGame.gameState.players[user.id];
+        const { hasFolded, hasBet, bet, chips } = playerYou;
+        const needsToBet = bet < biggestBet;
+        //have we already bet?
+        if ((hasBet || hasFolded) && !needsToBet) {
+            //hide the controls
+            pixiGame.hidePlayerControls();
+        } else if (biggestBet === bet) {
+            // our options are check, or bet
+            setCurrentBet(() => {
+                pixiGame.createCheckBetControls({
+                    currentBet: biggestBet,
+                    setCurrentBet,
+                });
+                return biggestBet;
+            });
+        } else if (biggestBet > bet) {
+            setCurrentBet(() => {
+                const currentBetToYou = biggestBet - bet;
+                debugger;
+                setRaise(() => {
+                    const toRaise = currentBetToYou * 2;
+                    pixiGame.createFoldCallRaiseControls({
+                        currentBet: currentBetToYou,
+                        setCurrentBet,
+                        setRaise,
+                        raise: toRaise,
+                    });
+                    return toRaise;
+                });
+                return currentBetToYou;
+            });
+        }
+    }, [gameState]);
+
+    useEffect(() => {
+        if (!pixiGame) return;
+        const biggestBet = pixiGame.bet;
+        const playerYou = pixiGame.gameState.players[user.id];
+        const { hasFolded, hasBet, bet, chips } = playerYou;
+        const needsToBet = bet < biggestBet;
+        //have we already bet?
+        if ((hasBet || hasFolded) && !needsToBet) {
+            //hide the controls
+            pixiGame.hidePlayerControls();
+        } else if (biggestBet === bet) {
+            // our options are check, or bet
+            // setCurrentBet(() => {
+            pixiGame.createCheckBetControls({
+                currentBet: currentBet,
+                setCurrentBet,
+            });
+            // return biggestBet;
+            // });
+        } else if (biggestBet > bet) {
+            // setCurrentBet(() => {
+            // const currentBetToYou = biggestBet - bet;
+            // debugger;
+            // setRaise(() => {
+            // const toRaise = currentBet;
+            pixiGame.createFoldCallRaiseControls({
+                currentBet: currentBet,
+                setCurrentBet,
+                setRaise,
+                raise: currentBet,
+            });
+            // return toRaise;
+            // });
+            // return currentBetToYou;
+            // });
+        }
+    }, [currentBet]);
+
+    useEffect(() => {
         console.log(gameState);
         if (pixiGame) {
             pixiGame.gameState = gameState;
@@ -305,11 +421,16 @@ export function Board(props = {}) {
         pixiGame.hidePlayerControls();
     }
     function testFoldCallRaiseControls() {
-        pixiGame.createFoldCallRaiseControls(20);
+        pixiGame.createFoldCallRaiseControls({
+            currentBet,
+            setCurrentBet,
+            setRaise,
+            raise,
+        });
     }
 
     function testCheckBetControls() {
-        pixiGame.createCheckBetControls(20);
+        pixiGame.createCheckBetControls({ currentBet, setCurrentBet });
     }
 
     function testDeal() {
@@ -364,7 +485,7 @@ export function Board(props = {}) {
 
     return (
         <BoardContainer>
-            <TestButtonsContainer>
+            {/* <TestButtonsContainer>
                 <TestBtn fn={testShowDown} text="TEST showdown" />
                 <TestBtn fn={testSettleBets} text="TEST settleBets" />
                 <TestBtn fn={testFold} text="Test FOLD" />
@@ -388,7 +509,7 @@ export function Board(props = {}) {
                     fn={testCheckBetControls}
                     text="testCheckBetControls"
                 />
-            </TestButtonsContainer>
+            </TestButtonsContainer> */}
             {/* Events logger */}
 
             <div ref={pixiCanvasRef}></div>
@@ -405,95 +526,6 @@ function TestBtn({ fn, text }) {
         >
             {text}
         </button>
-    );
-}
-
-// function PlayerTimer() {
-//     const [arcEndAngle, setArcEndAngle] = useState(Math.PI * 2); // Initial end angle
-
-//     useEffect(() => {
-//         const interval = setInterval(() => {
-//             setArcEndAngle((prevAngle) => {
-//                 if (prevAngle <= 0) clearInterval(interval);
-//                 return prevAngle - 0.41;
-//             }); // Update the end angle every interval
-//         }, 1000); // Interval duration in milliseconds
-
-//         return () => {
-//             clearInterval(interval); // Clear the interval on component unmount
-//         };
-//     }, []);
-
-//     const playerTimer = (g) => {
-//         g.clear();
-
-//         g.lineStyle(8, 0x33f0ff, 0.2);
-//         g.arc(0, 0, 60, 0, arcEndAngle, false);
-
-//         g.endFill();
-//     };
-
-//     return <Graphics anchor={0.5} draw={playerTimer} />;
-// }
-
-function BetButton(props) {
-    return <Button x={200} y={30} text="BET" textColor="white" />;
-}
-function Button(props = {}) {
-    const {
-        buttonColor = 0xff0000,
-        handleClick = () => {},
-        x = 0,
-        y = 0,
-        text = "HELLO WORLD",
-        textColor = "red",
-        fontSize = 15,
-    } = props;
-
-    const textStyle = new PIXI.TextStyle({
-        fontFamily: "Arial",
-        fill: textColor,
-        fontSize: fontSize,
-        fontWeight: "bold",
-        align: "center",
-    });
-    let { width: txtWidth, height: txtHeight } = PIXI.TextMetrics.measureText(
-        text,
-        textStyle
-    );
-    const btnXPadding = 8;
-    const btnYPadding = 4;
-    const button = useCallback((g) => {
-        g.clear();
-
-        g.beginFill(buttonColor, 0.5);
-        g.drawRoundedRect(
-            0,
-            0,
-            txtWidth + btnXPadding,
-            txtHeight + btnYPadding,
-            3
-        );
-
-        g.endFill();
-        // Enable button interactivity
-        g.interactive = true;
-        g.buttonMode = true;
-        g.on("click", handleClick);
-    }, []);
-
-    return (
-        <Container>
-            <Graphics x={x} y={y} draw={button}>
-                <Text
-                    text={text}
-                    anchor={{ x: 0.5, y: 0.5 }}
-                    style={textStyle}
-                    x={txtWidth / 2 + btnXPadding / 2}
-                    y={txtHeight / 2 + btnYPadding / 2}
-                />
-            </Graphics>
-        </Container>
     );
 }
 

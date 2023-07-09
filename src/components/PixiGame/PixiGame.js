@@ -389,6 +389,7 @@ export default class PixiGame {
 
     //hide controls
     hidePlayerControls() {
+        if (!this.playerControlsContainer) return;
         Object.keys(this.playerControls).forEach((control) => {
             const controlContainer = this.playerControls[control];
             this.playerControlsContainer.removeChild(controlContainer);
@@ -396,7 +397,8 @@ export default class PixiGame {
     }
 
     //checkBet controls
-    createCheckBetControls(currentBet) {
+    createCheckBetControls({ currentBet, setCurrentBet }) {
+        debugger;
         this.hidePlayerControls();
         const width = 120 * this.globalScale;
         const height = 60 * this.globalScale;
@@ -407,7 +409,8 @@ export default class PixiGame {
             color: 0x2671ad,
             text: "Check",
             onClick: () => {
-                alert("check");
+                // alert("check");
+                this.betCheckFold({ check: true });
             },
             width: width - 5 * this.globalScale,
             height,
@@ -418,15 +421,35 @@ export default class PixiGame {
         this.makeButton({
             btnName: "bet",
             color: 0xcfa61f,
-            text: "Bet",
+            text: `Bet ${currentBet}`,
             onClick: () => {
-                alert("bet");
+                // alert(`bet ${currentBet}`);
+                this.betCheckFold({ bet: currentBet });
             },
             width: width - 5 * this.globalScale,
             height,
             radius,
             x: width,
-            withIncDec: true,
+            inc: () => {
+                setCurrentBet((bet) => {
+                    const newBet = bet + this.gameState.bet.bigBlind;
+                    if (newBet > this.YOU.chips) {
+                        return bet;
+                    } else {
+                        return newBet;
+                    }
+                });
+            },
+            dec: () => {
+                setCurrentBet((bet) => {
+                    const newBet = bet - this.gameState.bet.bigBlind;
+                    if (newBet < this.gameState.bet.bigBlind) {
+                        return this.gameState.bet.bigBlind;
+                    } else {
+                        return newBet;
+                    }
+                });
+            },
         });
 
         //need a All In Button
@@ -435,7 +458,8 @@ export default class PixiGame {
             color: 0x642196,
             text: "All In",
             onClick: () => {
-                alert("allIn");
+                // alert("allIn");
+                this.betCheckFold({ bet: this.YOU.chips });
             },
             width: width - 5 * this.globalScale,
             height,
@@ -445,10 +469,15 @@ export default class PixiGame {
     }
 
     //foldCallRaise controls
-    createFoldCallRaiseControls(currentBet) {
+    createFoldCallRaiseControls({
+        currentBet,
+        setCurrentBet,
+        setRaise,
+        raise,
+    }) {
         this.hidePlayerControls();
 
-        const raise = currentBet * 2;
+        // const raise = currentBet * 2;
         const width = 140 * this.globalScale;
         const height = 60 * this.globalScale;
         const radius = 10 * this.globalScale;
@@ -459,7 +488,8 @@ export default class PixiGame {
             color: 0xd12a0d,
             text: "Fold",
             onClick: () => {
-                alert("fold");
+                // alert("fold");
+                this.betCheckFold({ fold: true });
             },
             width: width - 5 * this.globalScale,
             height,
@@ -473,7 +503,12 @@ export default class PixiGame {
             color: 0x1fcfa6,
             text: `Call ${currentBet}`,
             onClick: () => {
-                alert("call");
+                // alert("call");
+                if (currentBet > this.YOU.chips) {
+                    this.betCheckFold({ bet: this.YOU.chips });
+                } else {
+                    this.betCheckFold({ bet: currentBet });
+                }
             },
             width: width - 5 * this.globalScale,
             height,
@@ -487,13 +522,34 @@ export default class PixiGame {
             color: 0xcfa61f,
             text: `Raise ${raise}`,
             onClick: () => {
-                alert("raise");
+                // alert("raise");
+                this.betCheckFold({ bet: raise });
             },
             width: width - 5 * this.globalScale,
             height,
             radius,
             x: width * 2,
-            withIncDec: true,
+            inc: () => {
+                setRaise((raise) => {
+                    const newRaise = raise + currentBet;
+                    if (newRaise > this.YOU.chips) {
+                        return raise;
+                    } else {
+                        return newRaise;
+                    }
+                });
+            },
+            dec: () => {
+                setRaise((raise) => {
+                    const newRaise = raise - currentBet;
+                    if (newRaise < currentBet * 2) {
+                        return currentBet * 2;
+                    } else {
+                        return newRaise;
+                    }
+                });
+            },
+            currentBet,
         });
 
         //need a All In Button
@@ -502,7 +558,8 @@ export default class PixiGame {
             color: 0x642196,
             text: "All In",
             onClick: () => {
-                alert("allIn");
+                // alert("allIn");
+                this.betCheckFold({ bet: this.YOU.chips });
             },
             width: width - 5 * this.globalScale,
             height,
@@ -512,6 +569,7 @@ export default class PixiGame {
     }
 
     makeButton(opts) {
+        if (!this.playerControlsContainer) return;
         const {
             btnName,
             color,
@@ -522,10 +580,11 @@ export default class PixiGame {
             radius,
             x,
             y,
-            withIncDec,
+            inc,
+            dec,
+            currentBet,
         } = opts;
-        console.log("make btn");
-        console.log(opts);
+
         const btnContainer = new Container();
 
         const btnGfx = new Graphics();
@@ -561,14 +620,12 @@ export default class PixiGame {
         btnText.position.x = width / 2; // // -sprite.sprite.width / 2;
         // btnText.text = "ttt";
         btnContainer.addChild(btnText);
-        if (withIncDec) {
+        if (inc && dec) {
             this.makeButton({
                 btnName: "inc",
                 color: 0x3aeb34,
                 text: "+",
-                onClick: () => {
-                    alert("inc");
-                },
+                onClick: inc,
                 width: width / 2 - 5 * this.globalScale,
                 height: height * 0.75,
                 radius,
@@ -580,9 +637,7 @@ export default class PixiGame {
                 btnName: "dec",
                 color: 0xeb4634,
                 text: "-",
-                onClick: () => {
-                    alert("dec");
-                },
+                onClick: dec,
                 width: width / 2 - 5 * this.globalScale,
                 height: height * 0.75,
                 radius,
@@ -778,6 +833,22 @@ export default class PixiGame {
         let chipImg;
         if (bet <= 10) {
             chipImg = "short-stack";
+        } else if (bet <= 100) {
+            chipImg = "4-red-chips";
+        } else if (bet <= 300) {
+            chipImg = "sub-small-stack";
+        } else if (bet <= 600) {
+            chipImg = "4-black-chips";
+        } else if (bet <= 1000) {
+            chipImg = "small-stack";
+        } else if (bet <= 3000) {
+            chipImg = "sub-medium-stack";
+        } else if (bet <= 6000) {
+            chipImg = "medium-stack";
+        } else if (bet <= 8000) {
+            chipImg = "sub-large-stack";
+        } else {
+            chipImg = "large-stack";
         }
 
         const textureUrl = `/img/chips/${chipImg}.png`;

@@ -94,6 +94,7 @@ module.exports = class Game {
             cardsDealt: this.cardsDealt,
             bettersTurn,
             bettersTurnOutOfTime: this.bettersTurnOutOfTime,
+            bet: this.bet,
         };
     }
 
@@ -499,15 +500,16 @@ module.exports = class Game {
         if (bet > player.chips) {
             return console.error("How are you betting more than you got");
         }
-        player.hasBet = true;
         this.updateBetAndPot(player, bet);
+        player.hasBet = true;
+        this.emitGameStateUpdate();
     }
 
     handlePlayerCheck(playerPosition) {
         const player = this.positions[playerPosition];
-        //make sure they can check
         const playerCurrentBet = player.bet;
         const biggestBet = this.bet.biggestBet;
+        //make sure they can check
         if (playerCurrentBet !== biggestBet) {
             console.log("You cant check this one");
             const socket = this.sockets[player.position];
@@ -517,12 +519,12 @@ module.exports = class Game {
                 "You can't check your way out of this one"
             );
         }
-        // player.bet = 0;//nooooo baaadddd
+
         player.hasBet = true;
         this.emitToRoom("playerCheck", {
             position: playerPosition,
         });
-        // this.nextPositionToBet();
+        this.emitGameStateUpdate();
     }
 
     handlePlayerFold(playerPosition) {
@@ -532,7 +534,7 @@ module.exports = class Game {
         this.emitToRoom("playerFold", {
             position: playerPosition,
         });
-        // this.nextPositionToBet();
+        this.emitGameStateUpdate();
     }
 
     async nextPositionToBet() {
@@ -660,6 +662,24 @@ module.exports = class Game {
         if (!winner) return console.log("missing a winner to announce");
         if (winner?.sameScore?.length) {
             console.log("WE GOT A TIE!!! SPLIT POT");
+            //for each winner do something
+            const share = this.pot / winner.sameScore.length;
+            winner?.sameScore.forEach((winner) => {
+                this.emitToRoom("playerWins", winner);
+
+                const winningPlayer = this.positions[winner.position];
+                winningPlayer.chips += share;
+
+                this.emitToRoom("chipBalance", {
+                    position: winningPlayer.position,
+                    chips: winningPlayer.chips,
+                    pot: this.pot,
+                    bet: this.bet.biggestBet,
+                });
+            });
+
+            this.pot = 0;
+            this.bet.biggestBet = 0;
         } else {
             this.emitToRoom("playerWins", winner);
 
